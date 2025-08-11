@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Phone, Video, MoreVertical, Send, Paperclip, Smile, Image, ArrowLeft } from 'lucide-react';
 import { useChat } from '../contexts/ChatContext';
-// import { useTheme } from '../contexts/ThemeContext';
 import { Message, User } from '../types';
 
 const MessageBubble: React.FC<{ 
@@ -94,7 +93,7 @@ const MessageBubble: React.FC<{
 
 const MessageInput: React.FC = () => {
   const [message, setMessage] = useState('');
-  const { sendMessage } = useChat();
+  const { sendMessage, isMobileView } = useChat();
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -138,7 +137,12 @@ const MessageInput: React.FC = () => {
             onChange={(e) => setMessage(e.target.value)}
             onKeyPress={handleKeyPress}
             placeholder="Type a message..."
-            className="w-full bg-gray-100 dark:bg-gray-700 border-0 rounded-full py-3 px-4 pr-12 text-sm text-gray-900 dark:text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 transition-all duration-200"
+            className={`
+              w-full bg-gray-100 dark:bg-gray-700 border-0 rounded-full pr-12 text-sm 
+              text-gray-900 dark:text-white placeholder-gray-500 
+              focus:ring-2 focus:ring-blue-500 transition-all duration-200
+              ${isMobileView ? 'py-3 px-4' : 'py-3 px-4'}
+            `}
           />
           <button
             type="button"
@@ -151,11 +155,11 @@ const MessageInput: React.FC = () => {
         <button
           type="submit"
           disabled={!message.trim()}
-          className={`p-3 rounded-full transition-all duration-200 ${
+          className={`rounded-full transition-all duration-200 ${
             message.trim()
               ? 'bg-blue-500 hover:bg-blue-600 text-white shadow-md hover:shadow-lg'
               : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500'
-          }`}
+          } ${isMobileView ? 'p-3' : 'p-3'}`}
         >
           <Send className="w-5 h-5" />
         </button>
@@ -195,7 +199,7 @@ export const ChatArea: React.FC = () => {
   const otherParticipant = activeChat.participants.find(p => p.id !== currentUser.id);
 
   return (
-    <div className="flex-1 flex flex-col bg-white dark:bg-gray-900">
+    <div className="flex-1 flex flex-col bg-white dark:bg-gray-900 h-full">
       {/* Header */}
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4">
         <div className="flex items-center justify-between">
@@ -204,7 +208,7 @@ export const ChatArea: React.FC = () => {
             {isMobileView && (
               <button 
                 onClick={() => setActiveChat(null)}
-                className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors duration-200 mr-2"
+                className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors duration-200 mr-1"
               >
                 <ArrowLeft className="w-5 h-5" />
               </button>
@@ -227,7 +231,7 @@ export const ChatArea: React.FC = () => {
             </div>
           </div>
           
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-1">
             <button className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors duration-200">
               <Phone className="w-5 h-5" />
             </button>
