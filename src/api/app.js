@@ -55,9 +55,12 @@ class ChatifyAPI {
   }
 
   setupMiddleware() {
-    // CORS configuration
+    // CORS configuration - cập nhật cho production
     this.app.use(cors({
-      origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+      origin: [
+        'http://localhost:5173', // for development
+        'https://chatify-neon-five.vercel.app' // your production domain
+      ],
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization']
