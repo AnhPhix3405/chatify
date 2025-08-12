@@ -8,7 +8,7 @@ const { Pool } = require('pg');
 class ChatifyAPI {
   constructor() {
     this.app = express();
-    this.port = process.env.PORT || 3001;
+    this.port = process.env.PORT || 10000; // Render uses port 10000
     this.initDatabase();
     this.setupMiddleware();
     this.setupRoutes();
@@ -16,22 +16,32 @@ class ChatifyAPI {
   }
 
   initDatabase() {
-    // Kết nối PostgreSQL với Neon.tech
-    this.db = new Pool({
+    // Kết nối PostgreSQL - hỗ trợ cả Neon.tech và Render PostgreSQL
+    const dbConfig = {
       host: process.env.DB_HOST,
       port: process.env.DB_PORT,
       database: process.env.DB_NAME,
       user: process.env.DB_USER,
       password: process.env.DB_PASSWORD,
-      ssl: {
+      ssl: process.env.NODE_ENV === 'production' ? {
         rejectUnauthorized: false,
         require: true
-      },
+      } : false,
       // Connection pool settings
       max: 20,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 2000,
-    });
+    };
+
+    // Fallback to DATABASE_URL if individual params not available (Render style)
+    if (process.env.DATABASE_URL && !process.env.DB_HOST) {
+      dbConfig.connectionString = process.env.DATABASE_URL;
+      dbConfig.ssl = {
+        rejectUnauthorized: false
+      };
+    }
+
+    this.db = new Pool(dbConfig);
 
     // Test connection
     this.testConnection();
@@ -59,7 +69,8 @@ class ChatifyAPI {
     this.app.use(cors({
       origin: [
         'http://localhost:5173', // for development
-        'https://chatify-neon-five.vercel.app' // your production domain
+        'https://chatify-neon-five.vercel.app', // your production domain
+        /\.render\.com$/ // Allow any Render domain
       ],
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],

@@ -6,8 +6,8 @@
   "scripts": {
     "start": "node app.js",
     "dev": "nodemon app.js",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "vercel-build": "echo 'Build completed'"
+    "build": "echo 'No build step required'",
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
     "chatify",

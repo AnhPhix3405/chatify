@@ -1,0 +1,40 @@
+services:
+  - type: web
+    name: chatify-api
+    env: node
+    region: singapore
+    plan: free
+    buildCommand: cd src/api && npm install
+    startCommand: cd src/api && npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DB_HOST
+        fromDatabase:
+          name: chatify-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: chatify-db
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: chatify-db
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: chatify-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: chatify-db
+          property: password
+
+databases:
+  - name: chatify-db
+    databaseName: chatify
+    user: chatify_user
+    plan: free
