@@ -13,28 +13,26 @@ services:
       - key: PORT
         value: 10000
       - key: DB_HOST
-        fromDatabase:
-          name: chatify-db
-          property: host
+        value: ep-gentle-firefly-a7iujacc-pooler.ap-southeast-2.aws.neon.tech
       - key: DB_PORT
-        fromDatabase:
-          name: chatify-db
-          property: port
+        value: 5432
       - key: DB_NAME
-        fromDatabase:
-          name: chatify-db
-          property: database
+        value: neondb
       - key: DB_USER
-        fromDatabase:
-          name: chatify-db
-          property: user
+        value: neondb_owner
       - key: DB_PASSWORD
-        fromDatabase:
-          name: chatify-db
-          property: password
-
-databases:
-  - name: chatify-db
-    databaseName: chatify
-    user: chatify_user
-    plan: free
+        value: npg_a5RxFZLVQ0yI
+      - key: DATABASE_URL
+        value: postgresql://neondb_owner:npg_a5RxFZLVQ0yI@ep-gentle-firefly-a7iujacc-pooler.ap-southeast-2.aws.neon.tech/neondb?sslmode=require
+      - key: JWT_SECRET
+        value: chatify-super-secret-jwt-key-2025-neon-db
+      - key: JWT_EXPIRES_IN
+        value: 24h
+      - key: FRONTEND_URL
+        value: https://chatify-neon-five.vercel.app
+      - key: API_VERSION
+        value: v1
+      - key: PGSSLMODE
+        value: require
+      - key: PGCHANNELBINDING
+        value: require
