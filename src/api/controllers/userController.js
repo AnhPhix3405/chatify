@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const db = require('../config/database');
 
 class UserController {
   /**
@@ -6,13 +7,18 @@ class UserController {
    */
   static async getAllUsers(req, res) {
     try {
-      const users = await User.findAll({
-        attributes: { exclude: ['password'] } // Không trả về password
+      const userModel = new User();
+      const users = await userModel.findAll(db);
+      
+      // Remove password from response
+      const safeUsers = users.map(user => {
+        const { password_hash, ...safeUser } = user;
+        return safeUser;
       });
       
       res.status(200).json({
         success: true,
-        data: users,
+        data: safeUsers,
         message: 'Lấy danh sách users thành công'
       });
     } catch (error) {
@@ -30,10 +36,9 @@ class UserController {
   static async getUserById(req, res) {
     try {
       const { id } = req.params;
+      const userModel = new User();
       
-      const user = await User.findByPk(id, {
-        attributes: { exclude: ['password'] }
-      });
+      const user = await userModel.findById(db, id);
       
       if (!user) {
         return res.status(404).json({
@@ -42,9 +47,12 @@ class UserController {
         });
       }
       
+      // Remove password from response
+      const { password_hash, ...safeUser } = user;
+      
       res.status(200).json({
         success: true,
-        data: user,
+        data: safeUser,
         message: 'Lấy thông tin user thành công'
       });
     } catch (error) {
@@ -61,7 +69,7 @@ class UserController {
    */
   static async createUser(req, res) {
     try {
-      const { username, email, password, avatar, phoneNumber } = req.body;
+      const { username, email, password, avatar_url, status } = req.body;
       
       // Validate required fields
       if (!username || !email || !password) {
@@ -71,32 +79,34 @@ class UserController {
         });
       }
       
-      // Check if user already exists
-      const existingUser = await User.findOne({
-        where: {
-          $or: [{ email }, { username }]
-        }
-      });
+      const userModel = new User();
       
-      if (existingUser) {
+      // Check if user already exists
+      const existingUserByEmail = await userModel.findByEmail(db, email);
+      const existingUserByUsername = await userModel.findByUsername(db, username);
+      
+      if (existingUserByEmail || existingUserByUsername) {
         return res.status(409).json({
           success: false,
           message: 'Email hoặc username đã tồn tại'
         });
       }
       
-      const newUser = await User.create({
+      // Hash password before storing (you should use bcrypt in production)
+      const password_hash = password; // TODO: Implement proper password hashing
+      
+      const newUser = await userModel.create(db, {
         username,
+        display_name: username, // Default display_name to username
         email,
-        password,
-        avatar,
-        phoneNumber,
-        isOnline: false
+        password_hash,
+        avatar_url: avatar_url || null,
+        status: status || 'offline',
+        last_seen: Date.now()
       });
       
       // Remove password from response
-      const userResponse = newUser.toJSON();
-      delete userResponse.password;
+      const { password_hash: _, ...userResponse } = newUser;
       
       res.status(201).json({
         success: true,
@@ -118,9 +128,10 @@ class UserController {
   static async updateUser(req, res) {
     try {
       const { id } = req.params;
-      const { username, email, avatar, phoneNumber, isOnline } = req.body;
+      const { username, email, avatar_url, status } = req.body;
       
-      const user = await User.findByPk(id);
+      const userModel = new User();
+      const user = await userModel.findById(db, id);
       
       if (!user) {
         return res.status(404).json({
@@ -130,39 +141,42 @@ class UserController {
       }
       
       // Check if username or email already exists (excluding current user)
-      if (username || email) {
-        const existingUser = await User.findOne({
-          where: {
-            id: { $ne: id },
-            $or: [
-              username && { username },
-              email && { email }
-            ].filter(Boolean)
-          }
-        });
-        
-        if (existingUser) {
+      if (username && username !== user.username) {
+        const existingUser = await userModel.findByUsername(db, username);
+        if (existingUser && existingUser.id !== parseInt(id)) {
           return res.status(409).json({
             success: false,
-            message: 'Username hoặc email đã được sử dụng bởi user khác'
+            message: 'Username đã được sử dụng bởi user khác'
           });
         }
       }
       
-      await user.update({
-        ...(username && { username }),
-        ...(email && { email }),
-        ...(avatar !== undefined && { avatar }),
-        ...(phoneNumber !== undefined && { phoneNumber }),
-        ...(isOnline !== undefined && { isOnline })
+      if (email && email !== user.email) {
+        const existingUser = await userModel.findByEmail(db, email);
+        if (existingUser && existingUser.id !== parseInt(id)) {
+          return res.status(409).json({
+            success: false,
+            message: 'Email đã được sử dụng bởi user khác'
+          });
+        }
+      }
+      
+      const updatedUser = await userModel.update(db, id, {
+        username: username || user.username,
+        display_name: username || user.display_name,
+        email: email || user.email,
+        password_hash: user.password_hash, // Keep existing password
+        avatar_url: avatar_url !== undefined ? avatar_url : user.avatar_url,
+        status: status || user.status,
+        last_seen: user.last_seen
       });
       
-      const updatedUser = user.toJSON();
-      delete updatedUser.password;
+      // Remove password from response
+      const { password_hash: _, ...safeUser } = updatedUser;
       
       res.status(200).json({
         success: true,
-        data: updatedUser,
+        data: safeUser,
         message: 'Cập nhật user thành công'
       });
     } catch (error) {
@@ -181,7 +195,8 @@ class UserController {
     try {
       const { id } = req.params;
       
-      const user = await User.findByPk(id);
+      const userModel = new User();
+      const user = await userModel.findById(db, id);
       
       if (!user) {
         return res.status(404).json({
@@ -190,7 +205,7 @@ class UserController {
         });
       }
       
-      await user.destroy();
+      await userModel.delete(db, id);
       
       res.status(200).json({
         success: true,
@@ -208,16 +223,24 @@ class UserController {
   /**
    * Update user online status (for WebSocket handling)
    */
-  static async updateOnlineStatus(userId, isOnline) {
+  static async updateOnlineStatus(userId, status) {
     try {
-      await User.update(
-        { isOnline },
-        { where: { id: userId } }
-      );
+      const userModel = new User();
+      const user = await userModel.findById(db, userId);
+      
+      if (user) {
+        await userModel.update(db, userId, {
+          ...user,
+          status: status,
+          last_seen: Date.now()
+        });
+      }
     } catch (error) {
       console.error('Error updating online status:', error);
     }
   }
 }
+
+module.exports = UserController;
 
 module.exports = UserController;

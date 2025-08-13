@@ -4,7 +4,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const { Pool } = require('pg');
-const userRoute = require('./routes/userRoute');
+const apiRoutes = require('./routes');
 
 class ChatifyAPI {
   constructor() {
@@ -117,8 +117,8 @@ class ChatifyAPI {
       }
     });
 
-    // Sử dụng userRoute cho các API liên quan đến user
-    this.app.use('/api', userRoute);
+    // Sử dụng API routes
+    this.app.use('/api', apiRoutes);
 
     // API routes
     this.app.use(`/api/${process.env.API_VERSION || 'v1'}`, (req, res) => {

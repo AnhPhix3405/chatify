@@ -1,6 +1,7 @@
 const Chat = require('../models/Chat');
 const ChatMember = require('../models/ChatMember');
 const User = require('../models/User');
+const db = require('../config/database');
 
 class ChatController {
   /**
@@ -17,30 +18,40 @@ class ChatController {
         });
       }
 
-      const chats = await Chat.findAll({
-        include: [
-          {
-            model: ChatMember,
-            where: { userId },
-            include: [
-              {
-                model: User,
-                attributes: ['id', 'username', 'avatar', 'isOnline']
-              }
-            ]
-          },
-          {
-            model: ChatMember,
-            as: 'members',
-            include: [
-              {
-                model: User,
-                attributes: ['id', 'username', 'avatar', 'isOnline']
-              }
-            ]
-          }
-        ]
-      });
+      const chatMemberModel = new ChatMember();
+      const chatModel = new Chat();
+      const userModel = new User();
+
+      // Get all chats where user is a member
+      const userChatMemberships = await chatMemberModel.findByUserId(db, userId);
+      
+      const chats = await Promise.all(
+        userChatMemberships.map(async (membership) => {
+          const chat = await chatModel.findById(db, membership.chat_id);
+          
+          // Get all members of this chat
+          const chatMembers = await chatMemberModel.findByChatId(db, membership.chat_id);
+          const membersWithUserInfo = await Promise.all(
+            chatMembers.map(async (member) => {
+              const user = await userModel.findById(db, member.user_id);
+              return {
+                ...member,
+                user: user ? { 
+                  id: user.id, 
+                  username: user.username, 
+                  avatar_url: user.avatar_url, 
+                  status: user.status 
+                } : null
+              };
+            })
+          );
+          
+          return {
+            ...chat,
+            members: membersWithUserInfo
+          };
+        })
+      );
 
       res.status(200).json({
         success: true,
@@ -63,20 +74,11 @@ class ChatController {
     try {
       const { id } = req.params;
 
-      const chat = await Chat.findByPk(id, {
-        include: [
-          {
-            model: ChatMember,
-            as: 'members',
-            include: [
-              {
-                model: User,
-                attributes: ['id', 'username', 'avatar', 'isOnline']
-              }
-            ]
-          }
-        ]
-      });
+      const chatModel = new Chat();
+      const chatMemberModel = new ChatMember();
+      const userModel = new User();
+
+      const chat = await chatModel.findById(db, id);
 
       if (!chat) {
         return res.status(404).json({
@@ -85,9 +87,31 @@ class ChatController {
         });
       }
 
+      // Get all members of this chat
+      const chatMembers = await chatMemberModel.findByChatId(db, id);
+      const membersWithUserInfo = await Promise.all(
+        chatMembers.map(async (member) => {
+          const user = await userModel.findById(db, member.user_id);
+          return {
+            ...member,
+            user: user ? { 
+              id: user.id, 
+              username: user.username, 
+              avatar_url: user.avatar_url, 
+              status: user.status 
+            } : null
+          };
+        })
+      );
+
+      const chatWithMembers = {
+        ...chat,
+        members: membersWithUserInfo
+      };
+
       res.status(200).json({
         success: true,
-        data: chat,
+        data: chatWithMembers,
         message: 'Lấy thông tin chat thành công'
       });
     } catch (error) {
