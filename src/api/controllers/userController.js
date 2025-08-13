@@ -102,7 +102,7 @@ class UserController {
         password_hash,
         avatar_url: avatar_url || null,
         status: status || 'offline',
-        last_seen: Date.now()
+        last_seen: 0
       });
       
       // Remove password from response
