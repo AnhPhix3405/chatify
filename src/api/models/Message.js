@@ -13,7 +13,8 @@ class Message {
         sender_id INTEGER,
         content TEXT,
         message_type TEXT,
-        reply_to_id TEXT
+        reply_to_id TEXT,
+        sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `;
   }
@@ -34,7 +35,7 @@ class Message {
 
   // Find messages by chat_id
   async findByChatId(db, chatId) {
-    const query = `SELECT * FROM ${this.tableName} WHERE chat_id = $1 ORDER BY id ASC`;
+    const query = `SELECT * FROM ${this.tableName} WHERE chat_id = $1 ORDER BY sent_at ASC`;
     const result = await db.query(query, [chatId]);
     return result.rows;
   }
@@ -63,30 +64,30 @@ class Message {
   // Create new message
   async create(db, messageData) {
     const { chat_id, sender_id, content, message_type, reply_to_id } = messageData;
-    
+
     const query = `
       INSERT INTO ${this.tableName} 
       (chat_id, sender_id, content, message_type, reply_to_id)
       VALUES ($1, $2, $3, $4, $5)
       RETURNING *
     `;
-    
+
     const result = await db.query(query, [chat_id, sender_id, content, message_type, reply_to_id]);
     return result.rows[0];
   }
 
   // Update message
   async update(db, id, messageData) {
-    const { chat_id, sender_id, content, message_type, reply_to_id } = messageData;
-    
+    const { chat_id, sender_id, content, message_type, reply_to_id, sent_at } = messageData;
+
     const query = `
       UPDATE ${this.tableName}
-      SET chat_id = $1, sender_id = $2, content = $3, message_type = $4, reply_to_id = $5
-      WHERE id = $6
+      SET chat_id = $1, sender_id = $2, content = $3, message_type = $4, reply_to_id = $5, sent_at = $6
+      WHERE id = $7
       RETURNING *
     `;
-    
-    const result = await db.query(query, [chat_id, sender_id, content, message_type, reply_to_id, id]);
+
+    const result = await db.query(query, [chat_id, sender_id, content, message_type, reply_to_id, sent_at, id]);
     return result.rows[0] || null;
   }
 
@@ -111,7 +112,7 @@ class Message {
 
   // Get latest message in chat
   async getLatestByChatId(db, chatId) {
-    const query = `SELECT * FROM ${this.tableName} WHERE chat_id = $1 ORDER BY id DESC LIMIT 1`;
+    const query = `SELECT * FROM ${this.tableName} WHERE chat_id = $1 ORDER BY sent_at DESC LIMIT 1`;
     const result = await db.query(query, [chatId]);
     return result.rows[0] || null;
   }
@@ -121,7 +122,7 @@ class Message {
     const query = `
       SELECT * FROM ${this.tableName} 
       WHERE chat_id = $1 
-      ORDER BY id ASC 
+      ORDER BY sent_at ASC 
       LIMIT $2 OFFSET $3
     `;
     const result = await db.query(query, [chatId, limit, offset]);
