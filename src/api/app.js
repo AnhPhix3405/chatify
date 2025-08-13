@@ -4,6 +4,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const { Pool } = require('pg');
+const userRoute = require('./routes/userRoute');
 
 class ChatifyAPI {
   constructor() {
@@ -116,137 +117,8 @@ class ChatifyAPI {
       }
     });
 
-    // Test database query endpoint
-    this.app.get('/api/test-db', async (req, res) => {
-      try {
-        const client = await this.db.connect();
-        const result = await client.query(`
-          SELECT 
-            current_database() as database,
-            current_user as user,
-            version() as version,
-            NOW() as timestamp
-        `);
-        client.release();
-
-        res.json({
-          success: true,
-          data: result.rows[0]
-        });
-      } catch (error) {
-        res.status(500).json({
-          success: false,
-          message: 'Database query failed',
-          error: error.message
-        });
-      }
-    });
-
-    // Get all users endpoint
-    this.app.get('/api/users', async (req, res) => {
-      try {
-        const client = await this.db.connect();
-        const result = await client.query('SELECT * FROM users');
-        client.release();
-
-        res.json({
-          success: true,
-          data: result.rows,
-          count: result.rows.length,
-          message: 'Users retrieved successfully'
-        });
-      } catch (error) {
-        res.status(500).json({
-          success: false,
-          message: 'Failed to fetch users',
-          error: error.message
-        });
-      }
-    });
-
-    // Get user by ID endpoint
-    this.app.get('/api/users/:id', async (req, res) => {
-      try {
-        const client = await this.db.connect();
-        const result = await client.query('SELECT * FROM users WHERE id = $1', [req.params.id]);
-        client.release();
-
-        if (result.rows.length === 0) {
-          return res.status(404).json({
-            success: false,
-            message: 'User not found'
-          });
-        }
-
-        res.json({
-          success: true,
-          data: result.rows[0],
-          message: 'User retrieved successfully'
-        });
-      } catch (error) {
-        res.status(500).json({
-          success: false,
-          message: 'Failed to fetch user',
-          error: error.message
-        });
-      }
-    });
-
-    // Check if users table exists and show structure
-    this.app.get('/api/users/schema/info', async (req, res) => {
-      try {
-        const client = await this.db.connect();
-        
-        // Check if users table exists
-        const tableExists = await client.query(`
-          SELECT EXISTS (
-            SELECT FROM information_schema.tables 
-            WHERE table_schema = 'public' 
-            AND table_name = 'users'
-          );
-        `);
-
-        if (!tableExists.rows[0].exists) {
-          client.release();
-          return res.json({
-            success: false,
-            message: 'Users table does not exist',
-            suggestion: 'You need to create the users table first'
-          });
-        }
-
-        // Get table structure
-        const structure = await client.query(`
-          SELECT 
-            column_name,
-            data_type,
-            is_nullable,
-            column_default
-          FROM information_schema.columns 
-          WHERE table_name = 'users' 
-          ORDER BY ordinal_position;
-        `);
-
-        // Get row count
-        const count = await client.query('SELECT COUNT(*) as total FROM users');
-
-        client.release();
-
-        res.json({
-          success: true,
-          table_exists: true,
-          total_records: parseInt(count.rows[0].total),
-          table_structure: structure.rows,
-          message: 'Users table information retrieved successfully'
-        });
-      } catch (error) {
-        res.status(500).json({
-          success: false,
-          message: 'Failed to get table information',
-          error: error.message
-        });
-      }
-    });
+    // Sử dụng userRoute cho các API liên quan đến user
+    this.app.use('/api', userRoute);
 
     // API routes
     this.app.use(`/api/${process.env.API_VERSION || 'v1'}`, (req, res) => {
