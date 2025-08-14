@@ -2,6 +2,7 @@ const MessageStatus = require('../models/MessageStatus');
 const Message = require('../models/Message');
 const ChatMember = require('../models/ChatMember');
 const User = require('../models/User');
+const db = require('../config/database');
 
 class MessageStatusController {
   /**
@@ -26,8 +27,13 @@ class MessageStatusController {
         });
       }
 
+      const messageModel = new Message();
+      const messageStatusModel = new MessageStatus();
+      const chatMemberModel = new ChatMember();
+      const userModel = new User();
+
       // Check if message exists
-      const message = await Message.findByPk(id);
+      const message = await messageModel.findById(db, id);
       if (!message) {
         return res.status(404).json({
           success: false,
@@ -36,12 +42,7 @@ class MessageStatusController {
       }
 
       // Check if user is member of the chat
-      const isMember = await ChatMember.findOne({
-        where: { 
-          chatId: message.chatId, 
-          userId 
-        }
-      });
+      const isMember = await chatMemberModel.findByChatAndUser(db, message.chat_id, userId);
 
       if (!isMember) {
         return res.status(403).json({
@@ -50,21 +51,17 @@ class MessageStatusController {
         });
       }
 
-      // Find or create message status
-      let messageStatus = await MessageStatus.findOne({
-        where: { 
-          messageId: id, 
-          userId 
-        }
-      });
+      // Find existing message status
+      let messageStatus = await messageStatusModel.findByMessageAndUser(db, id, userId);
 
       if (!messageStatus) {
-        // Create new status if doesn't exist (shouldn't happen normally)
-        messageStatus = await MessageStatus.create({
-          messageId: id,
-          userId,
+        // Create new status if doesn't exist
+        const statusData = {
+          message_id: parseInt(id),
+          user_id: parseInt(userId),
           status
-        });
+        };
+        messageStatus = await messageStatusModel.create(db, statusData);
       } else {
         // Update existing status
         // Only allow progression: sent -> delivered -> read
@@ -81,39 +78,30 @@ class MessageStatusController {
           });
         }
 
-        await messageStatus.update({ 
-          status,
-          [status === 'delivered' ? 'deliveredAt' : 'readAt']: new Date()
-        });
+        messageStatus = await messageStatusModel.updateStatusByMessageAndUser(db, id, userId, status);
       }
 
-      // Get updated message status with user info
-      const updatedStatus = await MessageStatus.findOne({
-        where: { 
-          messageId: id, 
-          userId 
-        },
-        include: [
-          {
-            model: User,
-            attributes: ['id', 'username', 'avatar']
-          }
-        ]
-      });
+      // Get user info
+      const user = await userModel.findById(db, userId);
+      const statusWithUser = {
+        ...messageStatus,
+        user: user ? {
+          id: user.id,
+          username: user.username,
+          avatar_url: user.avatar_url
+        } : null
+      };
 
       // Get all chat members for WebSocket emission
-      const chatMembers = await ChatMember.findAll({
-        where: { chatId: message.chatId },
-        attributes: ['userId']
-      });
+      const chatMembers = await chatMemberModel.findByChatId(db, message.chat_id);
 
       // Emit WebSocket event to all chat members
       if (req.io) {
         chatMembers.forEach(member => {
-          req.io.to(`user_${member.userId}`).emit('message:statusUpdated', {
+          req.io.to(`user_${member.user_id}`).emit('message:statusUpdated', {
             messageId: id,
-            chatId: message.chatId,
-            status: updatedStatus,
+            chatId: message.chat_id,
+            status: statusWithUser,
             updatedBy: userId
           });
         });
@@ -121,7 +109,7 @@ class MessageStatusController {
 
       res.status(200).json({
         success: true,
-        data: updatedStatus,
+        data: statusWithUser,
         message: 'Cập nhật trạng thái tin nhắn thành công'
       });
     } catch (error) {
@@ -140,8 +128,12 @@ class MessageStatusController {
     try {
       const { id } = req.params; // messageId
 
+      const messageModel = new Message();
+      const messageStatusModel = new MessageStatus();
+      const userModel = new User();
+
       // Check if message exists
-      const message = await Message.findByPk(id);
+      const message = await messageModel.findById(db, id);
       if (!message) {
         return res.status(404).json({
           success: false,
@@ -149,20 +141,26 @@ class MessageStatusController {
         });
       }
 
-      const statuses = await MessageStatus.findAll({
-        where: { messageId: id },
-        include: [
-          {
-            model: User,
-            attributes: ['id', 'username', 'avatar']
-          }
-        ],
-        order: [['createdAt', 'ASC']]
-      });
+      const statuses = await messageStatusModel.findByMessageId(db, id);
+
+      // Get user info for each status
+      const statusesWithUser = await Promise.all(
+        statuses.map(async (status) => {
+          const user = await userModel.findById(db, status.user_id);
+          return {
+            ...status,
+            user: user ? {
+              id: user.id,
+              username: user.username,
+              avatar_url: user.avatar_url
+            } : null
+          };
+        })
+      );
 
       res.status(200).json({
         success: true,
-        data: statuses,
+        data: statusesWithUser,
         message: 'Lấy trạng thái tin nhắn thành công'
       });
     } catch (error) {
@@ -187,13 +185,13 @@ class MessageStatusController {
         return;
       }
 
+      const messageStatusModel = new MessageStatus();
+      const messageModel = new Message();
+      const chatMemberModel = new ChatMember();
+      const userModel = new User();
+
       // Find message status
-      const messageStatus = await MessageStatus.findOne({
-        where: { 
-          messageId, 
-          userId 
-        }
-      });
+      const messageStatus = await messageStatusModel.findByMessageAndUser(db, messageId, userId);
 
       if (!messageStatus) {
         socket.emit('error', { message: 'Không tìm thấy trạng thái tin nhắn' });
@@ -202,37 +200,31 @@ class MessageStatusController {
 
       // Update to delivered if currently sent
       if (messageStatus.status === 'sent') {
-        await messageStatus.update({ 
-          status: 'delivered',
-          deliveredAt: new Date()
-        });
+        const updatedStatus = await messageStatusModel.updateStatusByMessageAndUser(db, messageId, userId, 'delivered');
 
         // Get message for chat info
-        const message = await Message.findByPk(messageId);
+        const message = await messageModel.findById(db, messageId);
         
         // Get all chat members for emission
-        const chatMembers = await ChatMember.findAll({
-          where: { chatId: message.chatId },
-          attributes: ['userId']
-        });
+        const chatMembers = await chatMemberModel.findByChatId(db, message.chat_id);
 
-        // Get updated status with user info
-        const updatedStatus = await MessageStatus.findOne({
-          where: { messageId, userId },
-          include: [
-            {
-              model: User,
-              attributes: ['id', 'username', 'avatar']
-            }
-          ]
-        });
+        // Get user info
+        const user = await userModel.findById(db, userId);
+        const statusWithUser = {
+          ...updatedStatus,
+          user: user ? {
+            id: user.id,
+            username: user.username,
+            avatar_url: user.avatar_url
+          } : null
+        };
 
         // Emit to all chat members
         chatMembers.forEach(member => {
-          io.to(`user_${member.userId}`).emit('message:statusUpdated', {
+          io.to(`user_${member.user_id}`).emit('message:statusUpdated', {
             messageId,
-            chatId: message.chatId,
-            status: updatedStatus,
+            chatId: message.chat_id,
+            status: statusWithUser,
             updatedBy: userId
           });
         });
@@ -257,13 +249,13 @@ class MessageStatusController {
         return;
       }
 
+      const messageStatusModel = new MessageStatus();
+      const messageModel = new Message();
+      const chatMemberModel = new ChatMember();
+      const userModel = new User();
+
       // Find message status
-      const messageStatus = await MessageStatus.findOne({
-        where: { 
-          messageId, 
-          userId 
-        }
-      });
+      const messageStatus = await messageStatusModel.findByMessageAndUser(db, messageId, userId);
 
       if (!messageStatus) {
         socket.emit('error', { message: 'Không tìm thấy trạng thái tin nhắn' });
@@ -271,39 +263,31 @@ class MessageStatusController {
       }
 
       // Update to read (from any previous status)
-      await messageStatus.update({ 
-        status: 'read',
-        readAt: new Date(),
-        // Also set deliveredAt if it wasn't set before
-        ...(!messageStatus.deliveredAt && { deliveredAt: new Date() })
-      });
+      const updatedStatus = await messageStatusModel.updateStatusByMessageAndUser(db, messageId, userId, 'read');
 
       // Get message for chat info
-      const message = await Message.findByPk(messageId);
+      const message = await messageModel.findById(db, messageId);
       
       // Get all chat members for emission
-      const chatMembers = await ChatMember.findAll({
-        where: { chatId: message.chatId },
-        attributes: ['userId']
-      });
+      const chatMembers = await chatMemberModel.findByChatId(db, message.chat_id);
 
-      // Get updated status with user info
-      const updatedStatus = await MessageStatus.findOne({
-        where: { messageId, userId },
-        include: [
-          {
-            model: User,
-            attributes: ['id', 'username', 'avatar']
-          }
-        ]
-      });
+      // Get user info
+      const user = await userModel.findById(db, userId);
+      const statusWithUser = {
+        ...updatedStatus,
+        user: user ? {
+          id: user.id,
+          username: user.username,
+          avatar_url: user.avatar_url
+        } : null
+      };
 
       // Emit to all chat members
       chatMembers.forEach(member => {
-        io.to(`user_${member.userId}`).emit('message:statusUpdated', {
+        io.to(`user_${member.user_id}`).emit('message:statusUpdated', {
           messageId,
-          chatId: message.chatId,
-          status: updatedStatus,
+          chatId: message.chat_id,
+          status: statusWithUser,
           updatedBy: userId
         });
       });
@@ -329,13 +313,13 @@ class MessageStatusController {
         });
       }
 
+      const chatMemberModel = new ChatMember();
+      const messageStatusModel = new MessageStatus();
+      const messageModel = new Message();
+      const userModel = new User();
+
       // Check if user is member of the chat
-      const isMember = await ChatMember.findOne({
-        where: { 
-          chatId, 
-          userId 
-        }
-      });
+      const isMember = await chatMemberModel.findByChatAndUser(db, chatId, userId);
 
       if (!isMember) {
         return res.status(403).json({
@@ -344,67 +328,50 @@ class MessageStatusController {
         });
       }
 
-      // Get all unread messages in this chat for this user
-      const unreadStatuses = await MessageStatus.findAll({
-        where: { 
-          userId,
-          status: { $in: ['sent', 'delivered'] }
-        },
-        include: [
-          {
-            model: Message,
-            where: { chatId }
-          }
-        ]
-      });
+      // Get all unread message statuses in this chat for this user
+      const unreadStatusQuery = `
+        SELECT ms.* FROM message_status ms
+        INNER JOIN messages m ON ms.message_id = m.id
+        WHERE m.chat_id = $1 AND ms.user_id = $2 AND ms.status IN ('sent', 'delivered')
+      `;
+      const unreadResult = await db.query(unreadStatusQuery, [chatId, userId]);
+      const unreadStatuses = unreadResult.rows;
 
       // Update all to read
       const updatePromises = unreadStatuses.map(status =>
-        status.update({ 
-          status: 'read',
-          readAt: new Date(),
-          // Also set deliveredAt if it wasn't set before
-          ...(!status.deliveredAt && { deliveredAt: new Date() })
-        })
+        messageStatusModel.updateStatus(db, status.id, 'read')
       );
 
       await Promise.all(updatePromises);
 
       // Get all chat members for WebSocket emission
-      const chatMembers = await ChatMember.findAll({
-        where: { chatId },
-        attributes: ['userId']
-      });
+      const chatMembers = await chatMemberModel.findByChatId(db, chatId);
+
+      // Get user info
+      const user = await userModel.findById(db, userId);
 
       // Emit status updates for each message
       if (req.io && unreadStatuses.length > 0) {
-        const updatedStatuses = await MessageStatus.findAll({
-          where: { 
-            userId,
-            id: { $in: unreadStatuses.map(s => s.id) }
-          },
-          include: [
-            {
-              model: User,
-              attributes: ['id', 'username', 'avatar']
-            },
-            {
-              model: Message,
-              attributes: ['id']
-            }
-          ]
-        });
+        for (const status of unreadStatuses) {
+          const updatedStatus = await messageStatusModel.findById(db, status.id);
+          const statusWithUser = {
+            ...updatedStatus,
+            user: user ? {
+              id: user.id,
+              username: user.username,
+              avatar_url: user.avatar_url
+            } : null
+          };
 
-        updatedStatuses.forEach(status => {
           chatMembers.forEach(member => {
-            req.io.to(`user_${member.userId}`).emit('message:statusUpdated', {
-              messageId: status.Message.id,
+            req.io.to(`user_${member.user_id}`).emit('message:statusUpdated', {
+              messageId: status.message_id,
               chatId,
-              status,
+              status: statusWithUser,
               updatedBy: userId
             });
           });
-        });
+        }
       }
 
       res.status(200).json({

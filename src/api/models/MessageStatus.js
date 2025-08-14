@@ -125,6 +125,13 @@ class MessageStatus {
     const result = await db.query(query, [messageId, userId]);
     return result.rows[0] || null;
   }
+
+  // Delete all statuses by message_id
+  async deleteByMessageId(db, messageId) {
+    const query = `DELETE FROM ${this.tableName} WHERE message_id = $1`;
+    const result = await db.query(query, [messageId]);
+    return result.rowCount; // Return number of deleted rows
+  }
 }
 
 module.exports = MessageStatus;

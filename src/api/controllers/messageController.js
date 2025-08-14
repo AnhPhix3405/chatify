@@ -145,11 +145,26 @@ class MessageController {
 
       const newMessage = await messageModel.create(db, messageData);
 
-      // Get sender info
-      const sender = await userModel.findById(db, sender_id);
-      
       // Get all chat members for WebSocket notification
       const chatMembers = await chatMemberModel.findByChatId(db, chatId);
+
+      // Create message status for all chat members except sender
+      const messageStatusModel = new MessageStatus();
+      const membersExceptSender = chatMembers.filter(member => member.user_id !== parseInt(sender_id));
+      
+      await Promise.all(
+        membersExceptSender.map(async (member) => {
+          const statusData = {
+            message_id: newMessage.id,
+            user_id: member.user_id,
+            status: 'sent'
+          };
+          return await messageStatusModel.create(db, statusData);
+        })
+      );
+
+      // Get sender info
+      const sender = await userModel.findById(db, sender_id);
 
       const messageWithSender = {
         ...newMessage,
@@ -281,6 +296,7 @@ class MessageController {
 
       const messageModel = new Message();
       const chatMemberModel = new ChatMember();
+      const messageStatusModel = new MessageStatus();
       const userModel = new User();
 
       // Find message
@@ -310,6 +326,9 @@ class MessageController {
 
       // Get chat members for WebSocket emission
       const chatMembers = await chatMemberModel.findByChatId(db, message.chat_id);
+
+      // Delete all message statuses for this message first
+      await messageStatusModel.deleteByMessageId(db, id);
 
       // Delete message
       await messageModel.delete(db, id);
@@ -353,6 +372,7 @@ class MessageController {
 
       const chatMemberModel = new ChatMember();
       const messageModel = new Message();
+      const messageStatusModel = new MessageStatus();
       const userModel = new User();
 
       // Check if sender is member of the chat
@@ -375,11 +395,25 @@ class MessageController {
 
       const newMessage = await messageModel.create(db, messageData);
 
-      // Get sender info
-      const sender = await userModel.findById(db, sender_id);
-
       // Get all chat members
       const chatMembers = await chatMemberModel.findByChatId(db, chatId);
+
+      // Create message status for all chat members except sender
+      const membersExceptSender = chatMembers.filter(member => member.user_id !== parseInt(sender_id));
+      
+      await Promise.all(
+        membersExceptSender.map(async (member) => {
+          const statusData = {
+            message_id: newMessage.id,
+            user_id: member.user_id,
+            status: 'sent'
+          };
+          return await messageStatusModel.create(db, statusData);
+        })
+      );
+
+      // Get sender info
+      const sender = await userModel.findById(db, sender_id);
 
       const messageWithSender = {
         ...newMessage,
