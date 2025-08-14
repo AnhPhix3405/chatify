@@ -128,7 +128,7 @@ class ChatController {
    */
   static async createChat(req, res) {
     try {
-      const { name, isGroup, avatar, memberIds, createdBy } = req.body;
+      const { name, type, avatar_url, memberIds, created_by } = req.body;
 
       if (!memberIds || memberIds.length < 1) {
         return res.status(400).json({
@@ -137,76 +137,104 @@ class ChatController {
         });
       }
 
-      if (!createdBy) {
+      if (!created_by) {
         return res.status(400).json({
           success: false,
-          message: 'CreatedBy là bắt buộc'
+          message: 'created_by là bắt buộc'
         });
       }
 
-      // For 1-1 chat, check if chat already exists
-      if (!isGroup && memberIds.length === 1) {
-        const existingChat = await Chat.findOne({
-          where: { isGroup: false },
-          include: [
-            {
-              model: ChatMember,
-              where: {
-                userId: { $in: [createdBy, memberIds[0]] }
-              }
-            }
-          ],
-          having: {
-            '$ChatMembers.count$': 2
-          }
-        });
+      const chatModel = new Chat();
+      const chatMemberModel = new ChatMember();
 
-        if (existingChat) {
-          return res.status(200).json({
-            success: true,
-            data: existingChat,
-            message: 'Chat đã tồn tại'
-          });
+      // For 1-1 chat, check if chat already exists between these users
+      if (type === 'direct' && memberIds.length === 1) {
+        // Get all chats where both users are members
+        const user1Chats = await chatMemberModel.findByUserId(db, created_by);
+        const user2Chats = await chatMemberModel.findByUserId(db, memberIds[0]);
+        
+        // Find common direct chats
+        const commonChats = user1Chats.filter(chat1 => 
+          user2Chats.some(chat2 => chat1.chat_id === chat2.chat_id)
+        );
+        
+        for (let commonChat of commonChats) {
+          const chat = await chatModel.findById(db, commonChat.chat_id);
+          if (chat && chat.type === 'direct') {
+            // Get chat with members info
+            const chatMembers = await chatMemberModel.findByChatId(db, chat.id);
+            const membersWithUserInfo = await Promise.all(
+              chatMembers.map(async (member) => {
+                const userModel = new User();
+                const user = await userModel.findById(db, member.user_id);
+                return {
+                  ...member,
+                  user: user ? { 
+                    id: user.id, 
+                    username: user.username, 
+                    avatar_url: user.avatar_url, 
+                    status: user.status 
+                  } : null
+                };
+              })
+            );
+            
+            return res.status(200).json({
+              success: true,
+              data: { ...chat, members: membersWithUserInfo },
+              message: 'Chat đã tồn tại'
+            });
+          }
         }
       }
 
       // Create new chat
-      const newChat = await Chat.create({
-        name: isGroup ? name : null,
-        isGroup: isGroup || false,
-        avatar: isGroup ? avatar : null,
-        createdBy
-      });
+      const chatData = {
+        type: type || 'group',
+        name: (type === 'group' && name) ? name : null,
+        avatar_url: (type === 'group' && avatar_url) ? avatar_url : null,
+        created_by
+      };
+
+      const newChat = await chatModel.create(db, chatData);
 
       // Add creator to members list if not already included
-      const allMemberIds = [createdBy, ...memberIds.filter(id => id !== createdBy)];
+      const allMemberIds = [created_by, ...memberIds.filter(id => id !== created_by)];
 
       // Create chat members
-      const chatMembers = await Promise.all(
-        allMemberIds.map(userId =>
-          ChatMember.create({
-            chatId: newChat.id,
-            userId,
-            role: userId === createdBy ? 'admin' : 'member'
-          })
-        )
+      await Promise.all(
+        allMemberIds.map(async (userId) => {
+          const memberData = {
+            chat_id: newChat.id,
+            user_id: userId,
+            role: userId === created_by ? 'admin' : 'member'
+          };
+          return await chatMemberModel.create(db, memberData);
+        })
       );
 
       // Get complete chat info with members
-      const chatWithMembers = await Chat.findByPk(newChat.id, {
-        include: [
-          {
-            model: ChatMember,
-            as: 'members',
-            include: [
-              {
-                model: User,
-                attributes: ['id', 'username', 'avatar', 'isOnline']
-              }
-            ]
-          }
-        ]
-      });
+      const chatMembers = await chatMemberModel.findByChatId(db, newChat.id);
+      const userModel = new User();
+      const membersWithUserInfo = await Promise.all(
+        chatMembers.map(async (member) => {
+          const user = await userModel.findById(db, member.user_id);
+          return {
+            ...member,
+            user: user ? { 
+              id: user.id, 
+              username: user.username, 
+              avatar_url: user.avatar_url, 
+              status: user.status 
+            } : null
+          };
+        })
+      );
+
+      const chatWithMembers = {
+        ...newChat,
+        members: membersWithUserInfo
+      };
 
       // Emit WebSocket event
       if (req.io) {
@@ -214,7 +242,7 @@ class ChatController {
         allMemberIds.forEach(userId => {
           req.io.to(`user_${userId}`).emit('chat:created', {
             chat: chatWithMembers,
-            createdBy
+            createdBy: created_by
           });
         });
       }
@@ -239,9 +267,13 @@ class ChatController {
   static async updateChat(req, res) {
     try {
       const { id } = req.params;
-      const { name, avatar, updatedBy } = req.body;
+      const { name, avatar_url, updatedBy } = req.body;
 
-      const chat = await Chat.findByPk(id);
+      const chatModel = new Chat();
+      const chatMemberModel = new ChatMember();
+      const userModel = new User();
+
+      const chat = await chatModel.findById(db, id);
 
       if (!chat) {
         return res.status(404).json({
@@ -251,10 +283,8 @@ class ChatController {
       }
 
       // Check if user is admin (for group chats)
-      if (chat.isGroup && updatedBy) {
-        const memberRole = await ChatMember.findOne({
-          where: { chatId: id, userId: updatedBy }
-        });
+      if (chat.type === 'group' && updatedBy) {
+        const memberRole = await chatMemberModel.findByChatAndUser(db, id, updatedBy);
 
         if (!memberRole || memberRole.role !== 'admin') {
           return res.status(403).json({
@@ -264,33 +294,44 @@ class ChatController {
         }
       }
 
-      await chat.update({
-        ...(name !== undefined && { name }),
-        ...(avatar !== undefined && { avatar })
-      });
+      // Update chat data
+      const updateData = {
+        type: chat.type,
+        name: name !== undefined ? name : chat.name,
+        avatar_url: avatar_url !== undefined ? avatar_url : chat.avatar_url,
+        created_by: chat.created_by
+      };
+
+      const updatedChat = await chatModel.update(db, id, updateData);
 
       // Get updated chat with members
-      const updatedChat = await Chat.findByPk(id, {
-        include: [
-          {
-            model: ChatMember,
-            as: 'members',
-            include: [
-              {
-                model: User,
-                attributes: ['id', 'username', 'avatar', 'isOnline']
-              }
-            ]
-          }
-        ]
-      });
+      const chatMembers = await chatMemberModel.findByChatId(db, id);
+      const membersWithUserInfo = await Promise.all(
+        chatMembers.map(async (member) => {
+          const user = await userModel.findById(db, member.user_id);
+          return {
+            ...member,
+            user: user ? { 
+              id: user.id, 
+              username: user.username, 
+              avatar_url: user.avatar_url, 
+              status: user.status 
+            } : null
+          };
+        })
+      );
+
+      const chatWithMembers = {
+        ...updatedChat,
+        members: membersWithUserInfo
+      };
 
       // Emit WebSocket event
       if (req.io) {
-        const memberIds = updatedChat.members.map(member => member.userId);
+        const memberIds = membersWithUserInfo.map(member => member.user_id);
         memberIds.forEach(userId => {
           req.io.to(`user_${userId}`).emit('chat:updated', {
-            chat: updatedChat,
+            chat: chatWithMembers,
             updatedBy
           });
         });
@@ -298,7 +339,7 @@ class ChatController {
 
       res.status(200).json({
         success: true,
-        data: updatedChat,
+        data: chatWithMembers,
         message: 'Cập nhật chat thành công'
       });
     } catch (error) {
@@ -318,14 +359,10 @@ class ChatController {
       const { id } = req.params;
       const { deletedBy } = req.body;
 
-      const chat = await Chat.findByPk(id, {
-        include: [
-          {
-            model: ChatMember,
-            as: 'members'
-          }
-        ]
-      });
+      const chatModel = new Chat();
+      const chatMemberModel = new ChatMember();
+
+      const chat = await chatModel.findById(db, id);
 
       if (!chat) {
         return res.status(404).json({
@@ -334,13 +371,14 @@ class ChatController {
         });
       }
 
-      // Check if user is admin or creator
-      if (chat.isGroup && deletedBy) {
-        const memberRole = await ChatMember.findOne({
-          where: { chatId: id, userId: deletedBy }
-        });
+      // Get all members before deletion
+      const chatMembers = await chatMemberModel.findByChatId(db, id);
 
-        if (!memberRole || (memberRole.role !== 'admin' && chat.createdBy !== deletedBy)) {
+      // Check if user is admin or creator
+      if (chat.type === 'group' && deletedBy) {
+        const memberRole = await chatMemberModel.findByChatAndUser(db, id, deletedBy);
+
+        if (!memberRole || (memberRole.role !== 'admin' && chat.created_by !== deletedBy)) {
           return res.status(403).json({
             success: false,
             message: 'Chỉ admin hoặc người tạo mới có thể xóa chat'
@@ -348,10 +386,17 @@ class ChatController {
         }
       }
 
-      const memberIds = chat.members.map(member => member.userId);
+      const memberIds = chatMembers.map(member => member.user_id);
 
-      // Delete chat (cascade will delete members and messages)
-      await chat.destroy();
+      // Delete chat members first
+      await Promise.all(
+        chatMembers.map(member => 
+          chatMemberModel.delete(db, member.id)
+        )
+      );
+
+      // Delete chat
+      await chatModel.delete(db, id);
 
       // Emit WebSocket event
       if (req.io) {
