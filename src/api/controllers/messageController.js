@@ -3,6 +3,7 @@ const MessageStatus = require('../models/MessageStatus');
 const Chat = require('../models/Chat');
 const ChatMember = require('../models/ChatMember');
 const User = require('../models/User');
+const db = require('../config/database');
 
 class MessageController {
   /**
@@ -13,8 +14,13 @@ class MessageController {
       const { chatId } = req.params;
       const { page = 1, limit = 50, userId } = req.query;
       
+      const chatModel = new Chat();
+      const chatMemberModel = new ChatMember();
+      const messageModel = new Message();
+      const userModel = new User();
+      
       // Check if chat exists
-      const chat = await Chat.findByPk(chatId);
+      const chat = await chatModel.findById(db, chatId);
       if (!chat) {
         return res.status(404).json({
           success: false,
@@ -24,9 +30,7 @@ class MessageController {
 
       // Check if user is member of the chat
       if (userId) {
-        const isMember = await ChatMember.findOne({
-          where: { chatId, userId }
-        });
+        const isMember = await chatMemberModel.findByChatAndUser(db, chatId, userId);
 
         if (!isMember) {
           return res.status(403).json({
@@ -38,39 +42,38 @@ class MessageController {
 
       const offset = (page - 1) * limit;
 
-      const messages = await Message.findAndCountAll({
-        where: { chatId },
-        include: [
-          {
-            model: User,
-            as: 'sender',
-            attributes: ['id', 'username', 'avatar']
-          },
-          {
-            model: MessageStatus,
-            as: 'statuses',
-            include: [
-              {
-                model: User,
-                attributes: ['id', 'username']
-              }
-            ]
-          }
-        ],
-        order: [['createdAt', 'DESC']],
-        limit: parseInt(limit),
-        offset: parseInt(offset)
-      });
+      // Get messages with pagination
+      const messages = await messageModel.findByChatIdWithPagination(db, chatId, parseInt(limit), parseInt(offset));
+      
+      // Get total count for pagination
+      const totalCountQuery = `SELECT COUNT(*) as count FROM messages WHERE chat_id = $1`;
+      const totalResult = await db.query(totalCountQuery, [chatId]);
+      const totalCount = parseInt(totalResult.rows[0].count);
+
+      // Get sender info for each message
+      const messagesWithSender = await Promise.all(
+        messages.map(async (message) => {
+          const sender = await userModel.findById(db, message.sender_id);
+          return {
+            ...message,
+            sender: sender ? {
+              id: sender.id,
+              username: sender.username,
+              avatar_url: sender.avatar_url
+            } : null
+          };
+        })
+      );
 
       res.status(200).json({
         success: true,
         data: {
-          messages: messages.rows,
+          messages: messagesWithSender,
           pagination: {
             page: parseInt(page),
             limit: parseInt(limit),
-            total: messages.count,
-            totalPages: Math.ceil(messages.count / limit)
+            total: totalCount,
+            totalPages: Math.ceil(totalCount / limit)
           }
         },
         message: 'Lấy danh sách tin nhắn thành công'
@@ -90,24 +93,29 @@ class MessageController {
   static async sendMessage(req, res) {
     try {
       const { chatId } = req.params;
-      const { content, messageType = 'text', senderId, fileUrl, fileName, fileSize } = req.body;
+      const { content, message_type = 'text', sender_id } = req.body;
 
-      if (!senderId) {
+      if (!sender_id) {
         return res.status(400).json({
           success: false,
-          message: 'SenderId là bắt buộc'
+          message: 'sender_id là bắt buộc'
         });
       }
 
-      if (!content && !fileUrl) {
+      if (!content) {
         return res.status(400).json({
           success: false,
-          message: 'Nội dung tin nhắn hoặc file là bắt buộc'
+          message: 'Nội dung tin nhắn là bắt buộc'
         });
       }
+
+      const chatModel = new Chat();
+      const chatMemberModel = new ChatMember();
+      const messageModel = new Message();
+      const userModel = new User();
 
       // Check if chat exists
-      const chat = await Chat.findByPk(chatId);
+      const chat = await chatModel.findById(db, chatId);
       if (!chat) {
         return res.status(404).json({
           success: false,
@@ -116,9 +124,7 @@ class MessageController {
       }
 
       // Check if sender is member of the chat
-      const senderMembership = await ChatMember.findOne({
-        where: { chatId, userId: senderId }
-      });
+      const senderMembership = await chatMemberModel.findByChatAndUser(db, chatId, sender_id);
 
       if (!senderMembership) {
         return res.status(403).json({
@@ -128,70 +134,37 @@ class MessageController {
       }
 
       // Create message
-      const newMessage = await Message.create({
-        chatId,
-        senderId,
+      const messageData = {
+        chat_id: parseInt(chatId),
+        sender_id: parseInt(sender_id),
         content,
-        messageType,
-        fileUrl,
-        fileName,
-        fileSize
-      });
+        message_type,
+        reply_to_id: null,
+        sent_at: new Date().toISOString()
+      };
 
-      // Get all chat members except sender
-      const chatMembers = await ChatMember.findAll({
-        where: { 
-          chatId,
-          userId: { $ne: senderId }
-        },
-        include: [
-          {
-            model: User,
-            attributes: ['id', 'username', 'isOnline']
-          }
-        ]
-      });
+      const newMessage = await messageModel.create(db, messageData);
 
-      // Create message status for each recipient
-      const messageStatuses = await Promise.all(
-        chatMembers.map(member =>
-          MessageStatus.create({
-            messageId: newMessage.id,
-            userId: member.userId,
-            status: 'sent'
-          })
-        )
-      );
+      // Get sender info
+      const sender = await userModel.findById(db, sender_id);
+      
+      // Get all chat members for WebSocket notification
+      const chatMembers = await chatMemberModel.findByChatId(db, chatId);
 
-      // Get complete message with sender info and statuses
-      const messageWithDetails = await Message.findByPk(newMessage.id, {
-        include: [
-          {
-            model: User,
-            as: 'sender',
-            attributes: ['id', 'username', 'avatar']
-          },
-          {
-            model: MessageStatus,
-            as: 'statuses',
-            include: [
-              {
-                model: User,
-                attributes: ['id', 'username']
-              }
-            ]
-          }
-        ]
-      });
+      const messageWithSender = {
+        ...newMessage,
+        sender: sender ? {
+          id: sender.id,
+          username: sender.username,
+          avatar_url: sender.avatar_url
+        } : null
+      };
 
       // Emit WebSocket event to all chat members
       if (req.io) {
-        // Emit to all members (including sender for confirmation)
-        const allMembers = [...chatMembers, { userId: senderId }];
-        
-        allMembers.forEach(member => {
-          req.io.to(`user_${member.userId}`).emit('message:new', {
-            message: messageWithDetails,
+        chatMembers.forEach(member => {
+          req.io.to(`user_${member.user_id}`).emit('message:new', {
+            message: messageWithSender,
             chatId
           });
         });
@@ -199,7 +172,7 @@ class MessageController {
 
       res.status(201).json({
         success: true,
-        data: messageWithDetails,
+        data: messageWithSender,
         message: 'Gửi tin nhắn thành công'
       });
     } catch (error) {
@@ -212,6 +185,93 @@ class MessageController {
   }
 
   /**
+   * PUT /messages/:id - Cập nhật tin nhắn
+   */
+  static async updateMessage(req, res) {
+    try {
+      const { id } = req.params;
+      const { content, userId } = req.body;
+
+      if (!userId) {
+        return res.status(400).json({
+          success: false,
+          message: 'userId là bắt buộc'
+        });
+      }
+
+      if (!content) {
+        return res.status(400).json({
+          success: false,
+          message: 'Nội dung tin nhắn là bắt buộc'
+        });
+      }
+
+      const messageModel = new Message();
+      const chatMemberModel = new ChatMember();
+      const userModel = new User();
+
+      // Find message
+      const message = await messageModel.findById(db, id);
+
+      if (!message) {
+        return res.status(404).json({
+          success: false,
+          message: 'Không tìm thấy tin nhắn'
+        });
+      }
+
+      // Check if user is the sender (only sender can update their own message)
+      if (message.sender_id !== parseInt(userId)) {
+        return res.status(403).json({
+          success: false,
+          message: 'Bạn chỉ có thể cập nhật tin nhắn của mình'
+        });
+      }
+
+      // Update message content
+      const updatedMessage = await messageModel.updateContent(db, id, content);
+
+      // Get sender info
+      const sender = await userModel.findById(db, message.sender_id);
+
+      const messageWithSender = {
+        ...updatedMessage,
+        sender: sender ? {
+          id: sender.id,
+          username: sender.username,
+          avatar_url: sender.avatar_url
+        } : null
+      };
+
+      // Get chat members for WebSocket emission
+      const chatMembers = await chatMemberModel.findByChatId(db, message.chat_id);
+
+      // Emit WebSocket event
+      if (req.io) {
+        chatMembers.forEach(member => {
+          req.io.to(`user_${member.user_id}`).emit('message:updated', {
+            message: messageWithSender,
+            chatId: message.chat_id,
+            updatedBy: userId
+          });
+        });
+      }
+
+      res.status(200).json({
+        success: true,
+        data: messageWithSender,
+        message: 'Cập nhật tin nhắn thành công'
+      });
+    } catch (error) {
+      console.error('Error updating message:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Lỗi server khi cập nhật tin nhắn'
+      });
+    }
+  }
+
+  /**
    * DELETE /messages/:id - Xóa tin nhắn
    */
   static async deleteMessage(req, res) {
@@ -219,16 +279,12 @@ class MessageController {
       const { id } = req.params;
       const { userId } = req.body;
 
+      const messageModel = new Message();
+      const chatMemberModel = new ChatMember();
+      const userModel = new User();
+
       // Find message
-      const message = await Message.findByPk(id, {
-        include: [
-          {
-            model: User,
-            as: 'sender',
-            attributes: ['id', 'username']
-          }
-        ]
-      });
+      const message = await messageModel.findById(db, id);
 
       if (!message) {
         return res.status(404).json({
@@ -238,19 +294,13 @@ class MessageController {
       }
 
       // Check if user is the sender or admin of the chat
-      const canDelete = message.senderId === userId;
+      const canDelete = message.sender_id === parseInt(userId);
       
       if (!canDelete) {
         // Check if user is admin of the chat
-        const chatMember = await ChatMember.findOne({
-          where: { 
-            chatId: message.chatId, 
-            userId,
-            role: 'admin'
-          }
-        });
+        const chatMember = await chatMemberModel.findByChatAndUser(db, message.chat_id, userId);
 
-        if (!chatMember) {
+        if (!chatMember || chatMember.role !== 'admin') {
           return res.status(403).json({
             success: false,
             message: 'Bạn chỉ có thể xóa tin nhắn của mình hoặc phải là admin'
@@ -259,20 +309,17 @@ class MessageController {
       }
 
       // Get chat members for WebSocket emission
-      const chatMembers = await ChatMember.findAll({
-        where: { chatId: message.chatId },
-        attributes: ['userId']
-      });
+      const chatMembers = await chatMemberModel.findByChatId(db, message.chat_id);
 
-      // Delete message (cascade will delete message statuses)
-      await message.destroy();
+      // Delete message
+      await messageModel.delete(db, id);
 
       // Emit WebSocket event
       if (req.io) {
         chatMembers.forEach(member => {
-          req.io.to(`user_${member.userId}`).emit('message:deleted', {
+          req.io.to(`user_${member.user_id}`).emit('message:deleted', {
             messageId: id,
-            chatId: message.chatId,
+            chatId: message.chat_id,
             deletedBy: userId
           });
         });
@@ -296,18 +343,20 @@ class MessageController {
    */
   static async handleWebSocketMessage(socket, io, data) {
     try {
-      const { chatId, content, messageType = 'text', fileUrl, fileName, fileSize } = data;
-      const senderId = socket.userId;
+      const { chatId, content, message_type = 'text' } = data;
+      const sender_id = socket.userId;
 
-      if (!senderId) {
+      if (!sender_id) {
         socket.emit('error', { message: 'Unauthorized' });
         return;
       }
 
+      const chatMemberModel = new ChatMember();
+      const messageModel = new Message();
+      const userModel = new User();
+
       // Check if sender is member of the chat
-      const senderMembership = await ChatMember.findOne({
-        where: { chatId, userId: senderId }
-      });
+      const senderMembership = await chatMemberModel.findByChatAndUser(db, chatId, sender_id);
 
       if (!senderMembership) {
         socket.emit('error', { message: 'Bạn không phải thành viên của chat này' });
@@ -315,62 +364,36 @@ class MessageController {
       }
 
       // Create message
-      const newMessage = await Message.create({
-        chatId,
-        senderId,
+      const messageData = {
+        chat_id: parseInt(chatId),
+        sender_id: parseInt(sender_id),
         content,
-        messageType,
-        fileUrl,
-        fileName,
-        fileSize
-      });
+        message_type,
+        reply_to_id: null,
+        sent_at: new Date().toISOString()
+      };
 
-      // Get all chat members except sender
-      const chatMembers = await ChatMember.findAll({
-        where: { 
-          chatId,
-          userId: { $ne: senderId }
-        }
-      });
+      const newMessage = await messageModel.create(db, messageData);
 
-      // Create message status for each recipient
-      await Promise.all(
-        chatMembers.map(member =>
-          MessageStatus.create({
-            messageId: newMessage.id,
-            userId: member.userId,
-            status: 'sent'
-          })
-        )
-      );
+      // Get sender info
+      const sender = await userModel.findById(db, sender_id);
 
-      // Get complete message with sender info and statuses
-      const messageWithDetails = await Message.findByPk(newMessage.id, {
-        include: [
-          {
-            model: User,
-            as: 'sender',
-            attributes: ['id', 'username', 'avatar']
-          },
-          {
-            model: MessageStatus,
-            as: 'statuses',
-            include: [
-              {
-                model: User,
-                attributes: ['id', 'username']
-              }
-            ]
-          }
-        ]
-      });
+      // Get all chat members
+      const chatMembers = await chatMemberModel.findByChatId(db, chatId);
+
+      const messageWithSender = {
+        ...newMessage,
+        sender: sender ? {
+          id: sender.id,
+          username: sender.username,
+          avatar_url: sender.avatar_url
+        } : null
+      };
 
       // Emit to all chat members
-      const allMembers = [...chatMembers, { userId: senderId }];
-      
-      allMembers.forEach(member => {
-        io.to(`user_${member.userId}`).emit('message:new', {
-          message: messageWithDetails,
+      chatMembers.forEach(member => {
+        io.to(`user_${member.user_id}`).emit('message:new', {
+          message: messageWithSender,
           chatId
         });
       });

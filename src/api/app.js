@@ -6,7 +6,7 @@ const morgan = require('morgan');
 const { Pool } = require('pg');
 const apiRoutes = require('./routes');
 const chatRoute = require('./routes/chatRoute')
-
+const messageRoute = require('./routes/messageRoute')
 class ChatifyAPI {
   constructor() {
     this.app = express();
@@ -120,8 +120,8 @@ class ChatifyAPI {
 
     // Sử dụng API routes
     this.app.use('/api', apiRoutes);
-    this.app.use('/api',chatRoute);
-
+    this.app.use('/api', chatRoute);
+    this.app.use('/api', messageRoute);
     // API routes
     this.app.use(`/api/${process.env.API_VERSION || 'v1'}`, (req, res) => {
       res.json({

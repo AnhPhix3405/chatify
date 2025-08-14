@@ -63,16 +63,16 @@ class Message {
 
   // Create new message
   async create(db, messageData) {
-    const { chat_id, sender_id, content, message_type, reply_to_id } = messageData;
+    const { chat_id, sender_id, content, message_type, reply_to_id, sent_at } = messageData;
 
     const query = `
       INSERT INTO ${this.tableName} 
-      (chat_id, sender_id, content, message_type, reply_to_id)
-      VALUES ($1, $2, $3, $4, $5)
+      (chat_id, sender_id, content, message_type, reply_to_id, sent_at)
+      VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING *
     `;
 
-    const result = await db.query(query, [chat_id, sender_id, content, message_type, reply_to_id]);
+    const result = await db.query(query, [chat_id, sender_id, content, message_type, reply_to_id, sent_at]);
     return result.rows[0];
   }
 
