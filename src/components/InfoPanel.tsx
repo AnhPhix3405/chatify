@@ -1,7 +1,7 @@
 import React from 'react';
-import { X, Bell, BellOff, Palette, FileText, Image, Video } from 'lucide-react';
-import { useChat } from '../contexts/ChatContext';
-import { useTheme } from '../contexts/ThemeContext';
+import { X, Bell, Palette, FileText, Image, Video } from 'lucide-react';
+import { useChat } from '../hooks/useChat';
+import { User, Message } from '../types'; // Thêm import cho các kiểu User và Message
 
 interface InfoPanelProps {
   isOpen: boolean;
@@ -10,14 +10,13 @@ interface InfoPanelProps {
 
 export const InfoPanel: React.FC<InfoPanelProps> = ({ isOpen, onClose }) => {
   const { activeChat, currentUser } = useChat();
-  const { isDark } = useTheme();
 
   if (!isOpen || !activeChat) return null;
 
-  const otherParticipant = activeChat.participants.find(p => p.id !== currentUser.id);
-  
-  const sharedFiles = activeChat.messages.filter(m => m.type === 'file').length;
-  const sharedImages = activeChat.messages.filter(m => m.type === 'image').length;
+  const otherParticipant = activeChat.participants.find((p: User) => p.id !== currentUser.id);
+
+  const sharedFiles = activeChat.messages.filter((m: Message) => m.type === 'file').length;
+  const sharedImages = activeChat.messages.filter((m: Message) => m.type === 'image').length;
 
   return (
     <div className={`w-80 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 transform transition-transform duration-300 ${

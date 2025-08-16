@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Moon, Sun, Settings, Info } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
+import { useChat } from '../hooks/useChat';
 
 interface HeaderProps {
   onInfoToggle: () => void;
@@ -9,6 +10,14 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ onInfoToggle, showInfo }) => {
   const { isDark, toggleTheme } = useTheme();
+  const [searchQuery, setSearchQuery] = useState('');
+  const { searchUser } = useChat();
+
+  const handleSearch = () => {
+    if (searchQuery.trim()) {
+      searchUser(searchQuery);
+    }
+  };
 
   return (
     <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4">
@@ -38,6 +47,21 @@ export const Header: React.FC<HeaderProps> = ({ onInfoToggle, showInfo }) => {
           
           <button className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors duration-200">
             <Settings className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+      
+      <div className="mt-4">
+        <div className="relative">
+          <input
+            type="text"
+            placeholder="Search by username"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="border rounded px-2 py-1 w-full dark:bg-gray-700 dark:border-gray-600"
+          />
+          <button onClick={handleSearch} className="absolute right-0 top-0 px-3 py-1 bg-blue-500 text-white rounded">
+            Search
           </button>
         </div>
       </div>

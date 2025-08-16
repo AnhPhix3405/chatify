@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Phone, Video, MoreVertical, Send, Paperclip, Smile, Image, ArrowLeft } from 'lucide-react';
-import { useChat } from '../contexts/ChatContext';
+import { useChat } from '../hooks/useChat'; // Cập nhật import để sử dụng hook từ file mới
 import { Message, User } from '../types';
 
 const MessageBubble: React.FC<{ 
@@ -196,7 +196,8 @@ export const ChatArea: React.FC = () => {
     );
   }
 
-  const otherParticipant = activeChat.participants.find(p => p.id !== currentUser.id);
+  // Thêm kiểu cho các tham số
+  const otherParticipant = activeChat.participants.find((p: User) => p.id !== currentUser.id);
 
   return (
     <div className="flex-1 flex flex-col bg-white dark:bg-gray-900 h-full">
@@ -248,8 +249,8 @@ export const ChatArea: React.FC = () => {
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 bg-gray-50 dark:bg-gray-900">
         <div className="space-y-1">
-          {activeChat.messages.map((message) => {
-            const sender = activeChat.participants.find(p => p.id === message.senderId) || currentUser;
+          {activeChat.messages.map((message: Message) => {
+            const sender = activeChat.participants.find((p: User) => p.id === message.senderId) || currentUser;
             return (
               <MessageBubble
                 key={message.id}

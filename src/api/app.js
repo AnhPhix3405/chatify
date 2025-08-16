@@ -4,11 +4,10 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const { Pool } = require('pg');
-const apiRoutes = require('./routes');
 const chatRoute = require('./routes/chatRoute')
 const messageRoute = require('./routes/messageRoute')
 const messageStatusRoute = require('./routes/messageStatusRoute')
-
+const userRoute = require('./routes/userRoute');
 class ChatifyAPI {
   constructor() {
     this.app = express();
@@ -121,10 +120,10 @@ class ChatifyAPI {
     });
 
     // Sử dụng API routes
-    this.app.use('/api', apiRoutes);
     this.app.use('/api', chatRoute);
     this.app.use('/api', messageRoute);
     this.app.use('/api', messageStatusRoute);
+    this.app.use('/api', userRoute);
     // API routes
     this.app.use(`/api/${process.env.API_VERSION || 'v1'}`, (req, res) => {
       res.json({

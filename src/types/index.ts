@@ -6,6 +6,18 @@ export interface User {
   lastSeen?: string;
 }
 
+export interface ApiUser {
+  id: number;
+  username: string;
+  display_name: string;
+  email: string;
+  avatar_url?: string;
+  status: 'online' | 'offline' | 'away';
+  last_seen: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Message {
   id: string;
   senderId: string;
@@ -40,4 +52,7 @@ export interface ChatContextType {
   addReaction: (messageId: string, emoji: string) => void;
   searchChats: (query: string) => Chat[];
   setMobileView: (isMobile: boolean) => void;
+  searchUser: (username: string) => void;
+  searchResult: ApiUser | null;
+  clearSearchResult: () => void;
 }

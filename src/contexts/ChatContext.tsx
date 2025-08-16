@@ -1,15 +1,8 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Chat, ChatContextType, User, Message } from '../types';
+import React, { createContext, useState, useEffect } from 'react';
+import { Chat, Message, User, ChatContextType, ApiUser } from '../types';
+import { API_CONFIG, buildApiUrl } from '../config/api';
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
-
-export const useChat = () => {
-  const context = useContext(ChatContext);
-  if (!context) {
-    throw new Error('useChat must be used within a ChatProvider');
-  }
-  return context;
-};
 
 // Mock data
 const mockUsers: User[] = [
@@ -83,6 +76,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [chats, setChats] = useState<Chat[]>(mockChats);
   const [activeChat, setActiveChat] = useState<Chat | null>(null);
   const [isMobileView, setIsMobileView] = useState(false);
+  const [searchResult, setSearchResult] = useState<ApiUser | null>(null);
 
   // Detect mobile view
   useEffect(() => {
@@ -165,6 +159,32 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     );
   };
 
+  const searchUser = async (username: string) => {
+    try {
+      const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.SEARCH_USER(username)));
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      if (data.success) {
+        console.log('User found:', data.data);
+        setSearchResult(data.data);
+      } else {
+        console.error('User not found:', data.message);
+        alert('User not found');
+      }
+    } catch (error) {
+      console.error('Error searching user:', error);
+      alert('Error searching user. Please check your internet connection.');
+    }
+  };
+
+  const clearSearchResult = () => {
+    setSearchResult(null);
+  };
+
   return (
     <ChatContext.Provider value={{
       chats,
@@ -175,9 +195,14 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       sendMessage,
       addReaction,
       searchChats,
+      searchUser,
+      searchResult,
+      clearSearchResult,
       setMobileView: setIsMobileView
     }}>
       {children}
     </ChatContext.Provider>
   );
 };
+
+export { ChatContext };

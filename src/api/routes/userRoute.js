@@ -18,4 +18,7 @@ router.put('/users/:id', UserController.updateUser);
 // Xóa user
 router.delete('/users/:id', UserController.deleteUser);
 
+// Tìm kiếm user theo username
+router.get('/users/search/:username', UserController.searchUserByUsername);
+
 module.exports = router;

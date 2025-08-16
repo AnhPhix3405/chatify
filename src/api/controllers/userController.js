@@ -239,8 +239,40 @@ class UserController {
       console.error('Error updating online status:', error);
     }
   }
-}
 
-module.exports = UserController;
+  /**
+   * GET /users/search/:username - Tìm kiếm user theo username
+   */
+  static async searchUserByUsername(req, res) {
+    try {
+      const { username } = req.params;
+      const userModel = new User();
+
+      const user = await userModel.findByUsername(db, username);
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: 'Không tìm thấy user với username này'
+        });
+      }
+
+      // Remove password from response
+      const { password_hash, ...safeUser } = user;
+
+      res.status(200).json({
+        success: true,
+        data: safeUser,
+        message: 'Tìm kiếm user thành công'
+      });
+    } catch (error) {
+      console.error('Error searching user by username:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Lỗi server khi tìm kiếm user'
+      });
+    }
+  }
+}
 
 module.exports = UserController;

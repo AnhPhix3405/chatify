@@ -5,11 +5,12 @@ import { Sidebar } from './components/Sidebar';
 import { ChatArea } from './components/ChatArea';
 import { InfoPanel } from './components/InfoPanel';
 import { Header } from './components/Header';
-import { useChat } from './contexts/ChatContext';
+import { SearchResult } from './components/SearchResult';
+import { useChat } from './hooks/useChat';
 
 const AppContent = () => {
   const [showInfoPanel, setShowInfoPanel] = useState(false);
-  const { activeChat, isMobileView } = useChat();
+  const { activeChat, isMobileView, searchResult, clearSearchResult } = useChat();
 
   return (
     <div className="h-screen bg-gray-100 dark:bg-gray-900 flex flex-col">
@@ -52,6 +53,19 @@ const AppContent = () => {
           )}
         </div>
       </div>
+      
+      {/* Search Result Modal */}
+      {searchResult && (
+        <SearchResult
+          user={searchResult}
+          onClose={clearSearchResult}
+          onAddToChat={(user) => {
+            // TODO: Implement add to chat functionality
+            console.log('Add to chat:', user);
+            clearSearchResult();
+          }}
+        />
+      )}
     </div>
   );
 };

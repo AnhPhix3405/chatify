@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Search, Plus, MessageCircle } from 'lucide-react';
-import { useChat } from '../contexts/ChatContext';
+import { useChat } from '../hooks/useChat';
 import { Chat, User } from '../types';
 
 const StatusIndicator: React.FC<{ user: User }> = ({ user }) => {
@@ -22,7 +22,7 @@ const ChatItem: React.FC<{
   isActive: boolean; 
   onClick: () => void;
 }> = ({ chat, isActive, onClick }) => {
-  const otherParticipant = chat.participants.find(p => p.id !== 'current');
+  const otherParticipant = chat.participants.find((p: User) => p.id !== 'current');
   if (!otherParticipant) return null;
 
   const lastMessage = chat.messages[chat.messages.length - 1];
@@ -67,7 +67,7 @@ const ChatItem: React.FC<{
         </div>
         
         <div className="flex items-center justify-between mt-1">
-          <p className="text-sm text-gray-600 dark:text-gray-300 truncate">
+          <div className="text-sm text-gray-600 dark:text-gray-300 truncate">
             {otherParticipant.status === 'typing' ? (
               <span className="flex items-center text-blue-500">
                 <div className="flex space-x-1 mr-2">
@@ -82,7 +82,7 @@ const ChatItem: React.FC<{
             ) : (
               'No messages yet'
             )}
-          </p>
+          </div>
           
           {chat.unreadCount > 0 && (
             <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full min-w-[20px] text-center">
