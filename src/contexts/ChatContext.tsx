@@ -1,16 +1,8 @@
 import React, { createContext, useState, useEffect } from 'react';
-import { Chat, Message, User, ChatContextType, ApiUser } from '../types';
+import { Chat, Message, User, ChatContextType, ApiUser, ApiChat, ApiChatMember } from '../types';
 import { API_CONFIG, buildApiUrl } from '../config/api';
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
-
-// Initialize empty current user - will be loaded from API
-const initialCurrentUser: User = {
-  id: '',
-  name: '',
-  avatar: '',
-  status: 'online'
-};
 
 export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [chats, setChats] = useState<Chat[]>([]);
@@ -38,6 +30,9 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 status: apiUser.status === 'away' ? 'offline' : apiUser.status
               };
               setCurrentUser(user);
+              
+              // Load user chats after setting current user
+              loadUserChats(apiUser.id.toString());
             }
           }
         } catch (error) {
@@ -48,6 +43,45 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     loadCurrentUser();
   }, []);
+
+  // Load user chats from API
+  const loadUserChats = async (userId: string) => {
+    try {
+      const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.GET_USER_CHATS(userId)));
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          const apiChats: ApiChat[] = data.data;
+          // Filter only direct chats
+          const directChats = apiChats.filter(chat => chat.type === 'direct');
+          
+          const formattedChats: Chat[] = directChats.map((apiChat: ApiChat) => {
+            // Convert API chat format to frontend Chat format
+            const participants: User[] = apiChat.members.map((member: ApiChatMember) => ({
+              id: member.user.id.toString(),
+              name: member.user.username,
+              avatar: member.user.avatar_url || 'https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=150',
+              status: member.user.status === 'away' ? 'offline' : member.user.status
+            }));
+
+            return {
+              id: apiChat.id.toString(),
+              type: apiChat.type,
+              participants,
+              messages: [], // Messages will be loaded separately
+              unreadCount: 0
+            };
+          });
+          
+          console.log('Loaded direct chats:', formattedChats);
+          setChats(formattedChats);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading user chats:', error);
+    }
+  };
 
   // Detect mobile view
   useEffect(() => {
@@ -156,20 +190,19 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setSearchResult(null);
   };
 
-  const createChatWithUser = (apiUser: ApiUser) => {
+  const createChatWithUser = async (apiUser: ApiUser) => {
     if (!currentUser) return;
     
-    // Convert ApiUser to User format
-    const newUser: User = {
-      id: apiUser.id.toString(),
-      name: apiUser.display_name || apiUser.username,
-      avatar: apiUser.avatar_url || 'https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=150',
-      status: apiUser.status === 'away' ? 'offline' : apiUser.status
-    };
+    // Get current user ID from localStorage
+    const currentUserId = localStorage.getItem('chatify_user_id');
+    if (!currentUserId) {
+      console.error('Current user ID not found in localStorage');
+      return;
+    }
 
     // Check if chat already exists
     const existingChat = chats.find(chat => 
-      chat.participants.some(p => p.id === newUser.id)
+      chat.participants.some(p => p.id === apiUser.id.toString())
     );
 
     if (existingChat) {
@@ -179,21 +212,60 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
-    // Create new chat
-    const newChat: Chat = {
-      id: `chat-${newUser.id}`,
-      participants: [currentUser, newUser],
-      messages: [],
-      unreadCount: 0
-    };
+    try {
+      // Call API to create new chat
+      const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.CREATE_CHAT), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: 'direct',
+          memberIds: [apiUser.id],
+          created_by: parseInt(currentUserId)
+        }),
+      });
 
-    // Add to chats list
-    setChats(prevChats => [newChat, ...prevChats]);
-    
-    // Set as active chat
-    setActiveChat(newChat);
-    
-    console.log('Created new chat with user:', newUser);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          const apiChat: ApiChat = data.data;
+          
+          // Convert API chat to frontend format
+          const participants: User[] = apiChat.members.map((member: ApiChatMember) => ({
+            id: member.user.id.toString(),
+            name: member.user.username,
+            avatar: member.user.avatar_url || 'https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=150',
+            status: member.user.status === 'away' ? 'offline' : member.user.status
+          }));
+
+          const newChat: Chat = {
+            id: apiChat.id.toString(),
+            type: apiChat.type,
+            participants,
+            messages: [],
+            unreadCount: 0
+          };
+
+          // Add to chats list
+          setChats(prevChats => [newChat, ...prevChats]);
+          
+          // Set as active chat
+          setActiveChat(newChat);
+          
+          console.log('Created new chat successfully:', newChat);
+        } else {
+          console.error('Failed to create chat:', data.message);
+          alert('Failed to create chat');
+        }
+      } else {
+        console.error('API call failed:', response.status);
+        alert('Failed to create chat. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error creating chat:', error);
+      alert('Error creating chat. Please check your internet connection.');
+    }
   };
 
   return (

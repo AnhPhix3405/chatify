@@ -29,14 +29,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = async (username: string, password: string) => {
-    // Simulate API call
+    // Simulate API call - in real app, call your API to get user data
     await new Promise(resolve => setTimeout(resolve, 2000));
     
-    // Save username to localStorage
-    localStorage.setItem('chatify_username', username);
+    // Mock getting user data from API
+    // In real app, you would get this from the login API response
+    const userData = {
+      id: 1, // This should come from your API
+      username: username
+    };
     
-    // For demo purposes, any username/password combination works
-    console.log('Login successful:', { username, password });
+    // Save both username and user ID to localStorage
+    localStorage.setItem('chatify_username', username);
+    localStorage.setItem('chatify_user_id', userData.id.toString());
+    
+    console.log('Login successful:', { username, password, userData });
     setIsAuthenticated(true);
   };
 
@@ -50,6 +57,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = () => {
     localStorage.removeItem('chatify_username');
+    localStorage.removeItem('chatify_user_id');
     setIsAuthenticated(false);
   };
 

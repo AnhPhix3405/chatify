@@ -66,8 +66,8 @@ const AppContent = () => {
         <SearchResult
           user={searchResult}
           onClose={clearSearchResult}
-          onAddToChat={(user) => {
-            createChatWithUser(user);
+          onAddToChat={async (user) => {
+            await createChatWithUser(user);
             clearSearchResult();
           }}
         />

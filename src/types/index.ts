@@ -18,6 +18,25 @@ export interface ApiUser {
   updated_at: string;
 }
 
+export interface ApiChatMember {
+  user_id: number;
+  role: string;
+  user: {
+    id: number;
+    username: string;
+    avatar_url?: string;
+    status: 'online' | 'offline' | 'away';
+  };
+}
+
+export interface ApiChat {
+  id: number;
+  type: string;
+  name?: string;
+  avatar_url?: string;
+  members: ApiChatMember[];
+}
+
 export interface Message {
   id: string;
   senderId: string;
@@ -35,6 +54,7 @@ export interface Reaction {
 
 export interface Chat {
   id: string;
+  type?: string;
   participants: User[];
   messages: Message[];
   lastMessage?: Message;
@@ -55,5 +75,5 @@ export interface ChatContextType {
   searchUser: (username: string) => void;
   searchResult: ApiUser | null;
   clearSearchResult: () => void;
-  createChatWithUser: (apiUser: ApiUser) => void;
+  createChatWithUser: (apiUser: ApiUser) => Promise<void>;
 }

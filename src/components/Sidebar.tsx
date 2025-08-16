@@ -22,7 +22,10 @@ const ChatItem: React.FC<{
   isActive: boolean; 
   onClick: () => void;
 }> = ({ chat, isActive, onClick }) => {
-  const otherParticipant = chat.participants.find((p: User) => p.id !== 'current');
+  const { currentUser } = useChat();
+  
+  // Find the other participant (not the current user)
+  const otherParticipant = chat.participants.find((p: User) => p.id !== currentUser?.id);
   if (!otherParticipant) return null;
 
   const lastMessage = chat.messages[chat.messages.length - 1];
