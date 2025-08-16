@@ -50,10 +50,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loadCurrentUser();
   }, []);
 
-  // Load user chats from API
+  // Load user chats from API with last messages
   const loadUserChats = async (userId: string) => {
     try {
-      const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.GET_USER_CHATS(userId)));
+      const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.GET_USER_CHATS_WITH_LAST_MESSAGES(userId)));
       
       if (response.ok) {
         const data = await response.json();
@@ -71,16 +71,30 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
               status: member.user.status === 'away' ? 'offline' : member.user.status
             }));
 
+            // Convert last message if exists
+            let lastMessage: Message | undefined = undefined;
+            if (apiChat.lastMessage) {
+              lastMessage = {
+                id: apiChat.lastMessage.id.toString(),
+                senderId: apiChat.lastMessage.sender_id.toString(),
+                content: apiChat.lastMessage.content,
+                type: apiChat.lastMessage.message_type as 'text' | 'image' | 'file',
+                timestamp: new Date(apiChat.lastMessage.sent_at),
+                seenBy: []
+              };
+            }
+
             return {
               id: apiChat.id.toString(),
               type: apiChat.type,
               participants,
-              messages: [], // Messages will be loaded separately
+              messages: lastMessage ? [lastMessage] : [], // Include last message in messages array
+              lastMessage,
               unreadCount: 0
             };
           });
           
-          console.log('Loaded direct chats:', formattedChats);
+          console.log('Loaded direct chats with last messages:', formattedChats);
           setChats(formattedChats);
         }
       }
@@ -281,6 +295,15 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const refreshUserChats = async () => {
+    if (!currentUser) return;
+    
+    const currentUserId = localStorage.getItem('chatify_user_id');
+    if (currentUserId) {
+      await loadUserChats(currentUserId);
+    }
+  };
+
   return (
     <ChatContext.Provider value={{
       chats,
@@ -295,7 +318,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       searchResult,
       clearSearchResult,
       createChatWithUser,
-      setMobileView: setIsMobileView
+      setMobileView: setIsMobileView,
+      refreshUserChats
     }}>
       {children}
     </ChatContext.Provider>

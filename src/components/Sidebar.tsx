@@ -28,7 +28,7 @@ const ChatItem: React.FC<{
   const otherParticipant = chat.participants.find((p: User) => p.id !== currentUser?.id);
   if (!otherParticipant) return null;
 
-  const lastMessage = chat.messages[chat.messages.length - 1];
+  const lastMessage = chat.lastMessage || (chat.messages.length > 0 ? chat.messages[chat.messages.length - 1] : null);
   const formatTime = (date: Date) => {
     const now = new Date();
     const diff = now.getTime() - date.getTime();

@@ -1,6 +1,7 @@
 const Chat = require('../models/Chat');
 const ChatMember = require('../models/ChatMember');
 const User = require('../models/User');
+const Message = require('../models/Message');
 const db = require('../config/database');
 
 class ChatController {
@@ -417,6 +418,156 @@ class ChatController {
       res.status(500).json({
         success: false,
         message: 'Lỗi server khi xóa chat'
+      });
+    }
+  }
+
+  /**
+   * GET /chats/:chatId/last-message - Lấy tin nhắn cuối cùng của 1 chat
+   */
+  static async getLastMessage(req, res) {
+    try {
+      const { chatId } = req.params;
+      const { userId } = req.query;
+
+      const chatModel = new Chat();
+      const chatMemberModel = new ChatMember();
+      const messageModel = new Message();
+      const userModel = new User();
+
+      // Check if chat exists
+      const chat = await chatModel.findById(db, chatId);
+      if (!chat) {
+        return res.status(404).json({
+          success: false,
+          message: 'Không tìm thấy chat'
+        });
+      }
+
+      // Check if user is member of the chat (optional check)
+      if (userId) {
+        const isMember = await chatMemberModel.findByChatAndUser(db, chatId, userId);
+        if (!isMember) {
+          return res.status(403).json({
+            success: false,
+            message: 'Bạn không phải thành viên của chat này'
+          });
+        }
+      }
+
+      // Get last message
+      const lastMessage = await messageModel.getLatestByChatId(db, chatId);
+      
+      if (!lastMessage) {
+        return res.status(200).json({
+          success: true,
+          data: null,
+          message: 'Chat chưa có tin nhắn nào'
+        });
+      }
+
+      // Get sender info
+      const sender = await userModel.findById(db, lastMessage.sender_id);
+      const messageWithSender = {
+        ...lastMessage,
+        sender: sender ? {
+          id: sender.id,
+          username: sender.username,
+          avatar_url: sender.avatar_url
+        } : null
+      };
+
+      res.status(200).json({
+        success: true,
+        data: messageWithSender,
+        message: 'Lấy tin nhắn cuối cùng thành công'
+      });
+    } catch (error) {
+      console.error('Error getting last message:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Lỗi server khi lấy tin nhắn cuối cùng'
+      });
+    }
+  }
+
+  /**
+   * GET /chats/user/:userId/with-last-messages - Lấy danh sách chat của user với tin nhắn cuối cùng
+   */
+  static async getUserChatsWithLastMessages(req, res) {
+    try {
+      const { userId } = req.params;
+      
+      if (!userId) {
+        return res.status(400).json({
+          success: false,
+          message: 'UserId là bắt buộc'
+        });
+      }
+
+      const chatMemberModel = new ChatMember();
+      const chatModel = new Chat();
+      const userModel = new User();
+      const messageModel = new Message();
+
+      // Get all chats where user is a member
+      const userChatMemberships = await chatMemberModel.findByUserId(db, userId);
+      
+      const chats = await Promise.all(
+        userChatMemberships.map(async (membership) => {
+          const chat = await chatModel.findById(db, membership.chat_id);
+          
+          // Get all members of this chat
+          const chatMembers = await chatMemberModel.findByChatId(db, membership.chat_id);
+          const membersWithUserInfo = await Promise.all(
+            chatMembers.map(async (member) => {
+              const user = await userModel.findById(db, member.user_id);
+              return {
+                ...member,
+                user: user ? { 
+                  id: user.id, 
+                  username: user.username, 
+                  avatar_url: user.avatar_url, 
+                  status: user.status 
+                } : null
+              };
+            })
+          );
+
+          // Get last message
+          const lastMessage = await messageModel.getLatestByChatId(db, membership.chat_id);
+          let lastMessageWithSender = null;
+          
+          if (lastMessage) {
+            const sender = await userModel.findById(db, lastMessage.sender_id);
+            lastMessageWithSender = {
+              ...lastMessage,
+              sender: sender ? {
+                id: sender.id,
+                username: sender.username,
+                avatar_url: sender.avatar_url
+              } : null
+            };
+          }
+          
+          return {
+            ...chat,
+            members: membersWithUserInfo,
+            lastMessage: lastMessageWithSender
+          };
+        })
+      );
+
+      res.status(200).json({
+        success: true,
+        data: chats,
+        message: 'Lấy danh sách chat với tin nhắn cuối cùng thành công'
+      });
+    } catch (error) {
+      console.error('Error getting user chats with last messages:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Lỗi server khi lấy danh sách chat'
       });
     }
   }

@@ -29,12 +29,28 @@ export interface ApiChatMember {
   };
 }
 
+export interface ApiMessage {
+  id: number;
+  chat_id: number;
+  sender_id: number;
+  content: string;
+  message_type: string;
+  reply_to_id?: string;
+  sent_at: string;
+  sender?: {
+    id: number;
+    username: string;
+    avatar_url?: string;
+  };
+}
+
 export interface ApiChat {
   id: number;
   type: string;
   name?: string;
   avatar_url?: string;
   members: ApiChatMember[];
+  lastMessage?: ApiMessage;
 }
 
 export interface Message {
@@ -76,4 +92,5 @@ export interface ChatContextType {
   searchResult: ApiUser | null;
   clearSearchResult: () => void;
   createChatWithUser: (apiUser: ApiUser) => Promise<void>;
+  refreshUserChats: () => Promise<void>;
 }

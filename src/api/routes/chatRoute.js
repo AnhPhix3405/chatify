@@ -6,6 +6,12 @@ const router = express.Router();
 // Lấy danh sách chat của 1 user
 router.get('/chats', ChatController.getUserChats);
 
+// Lấy danh sách chat của user với tin nhắn cuối cùng
+router.get('/chats/user/:userId/with-last-messages', ChatController.getUserChatsWithLastMessages);
+
+// Lấy tin nhắn cuối cùng của 1 chat
+router.get('/chats/:chatId/last-message', ChatController.getLastMessage);
+
 // Lấy thông tin 1 chat cụ thể
 router.get('/chats/:id', ChatController.getChatById);
 
