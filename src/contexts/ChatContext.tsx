@@ -4,79 +4,50 @@ import { API_CONFIG, buildApiUrl } from '../config/api';
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
-// Mock data
-const mockUsers: User[] = [
-  {
-    id: '1',
-    name: 'Alice Johnson',
-    avatar: 'https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=150',
-    status: 'online'
-  },
-  {
-    id: '2',
-    name: 'Bob Smith',
-    avatar: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=150',
-    status: 'offline',
-    lastSeen: '2 hours ago'
-  },
-  {
-    id: '3',
-    name: 'Emma Wilson',
-    avatar: 'https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?auto=compress&cs=tinysrgb&w=150',
-    status: 'typing'
-  },
-  {
-    id: '4',
-    name: 'David Chen',
-    avatar: 'https://images.pexels.com/photos/91227/pexels-photo-91227.jpeg?auto=compress&cs=tinysrgb&w=150',
-    status: 'online'
-  }
-];
-
-const currentUser: User = {
-  id: 'current',
-  name: 'You',
-  avatar: 'https://images.pexels.com/photos/697509/pexels-photo-697509.jpeg?auto=compress&cs=tinysrgb&w=150',
+// Initialize empty current user - will be loaded from API
+const initialCurrentUser: User = {
+  id: '',
+  name: '',
+  avatar: '',
   status: 'online'
 };
 
-const mockChats: Chat[] = mockUsers.map((user, index) => ({
-  id: `chat-${user.id}`,
-  participants: [currentUser, user],
-  messages: [
-    {
-      id: `msg-${index}-1`,
-      senderId: user.id,
-      content: index === 0 ? 'Hey! How are you doing today?' : 
-               index === 1 ? 'Thanks for the files you sent yesterday!' :
-               index === 2 ? 'Let\'s meet up for coffee sometime soon ☕' :
-               'Great job on the project presentation!',
-      type: 'text',
-      timestamp: new Date(Date.now() - (index + 1) * 3600000),
-      reactions: index === 0 ? [{ emoji: '❤️', userId: currentUser.id }] : undefined,
-      seenBy: [currentUser.id]
-    },
-    {
-      id: `msg-${index}-2`,
-      senderId: currentUser.id,
-      content: index === 0 ? 'I\'m doing great! Working on some exciting projects 🚀' :
-               index === 1 ? 'You\'re welcome! Let me know if you need anything else' :
-               index === 2 ? 'Absolutely! I know this great place downtown' :
-               'Thank you! It was a team effort',
-      type: 'text',
-      timestamp: new Date(Date.now() - (index + 1) * 3500000),
-      seenBy: [user.id]
-    }
-  ],
-  unreadCount: index === 0 ? 0 : index === 2 ? 2 : 1,
-  theme: index === 0 ? '#3B82F6' : undefined
-}));
-
 export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [chats, setChats] = useState<Chat[]>(mockChats);
+  const [chats, setChats] = useState<Chat[]>([]);
   const [activeChat, setActiveChat] = useState<Chat | null>(null);
   const [isMobileView, setIsMobileView] = useState(false);
   const [searchResult, setSearchResult] = useState<ApiUser | null>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+
+  // Load user data when component mounts
+  useEffect(() => {
+    const loadCurrentUser = async () => {
+      const savedUsername = localStorage.getItem('chatify_username');
+      if (savedUsername) {
+        try {
+          const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.SEARCH_USER(savedUsername)));
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (data.success) {
+              const apiUser = data.data;
+              const user: User = {
+                id: apiUser.id.toString(),
+                name: apiUser.display_name || apiUser.username,
+                avatar: apiUser.avatar_url || 'https://images.pexels.com/photos/697509/pexels-photo-697509.jpeg?auto=compress&cs=tinysrgb&w=150',
+                status: apiUser.status === 'away' ? 'offline' : apiUser.status
+              };
+              setCurrentUser(user);
+            }
+          }
+        } catch (error) {
+          console.error('Error loading current user:', error);
+        }
+      }
+    };
+
+    loadCurrentUser();
+  }, []);
 
   // Detect mobile view
   useEffect(() => {
@@ -91,7 +62,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const sendMessage = (content: string, type: 'text' | 'image' | 'file' = 'text') => {
-    if (!activeChat) return;
+    if (!activeChat || !currentUser) return;
 
     const newMessage: Message = {
       id: `msg-${Date.now()}`,
@@ -124,7 +95,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const addReaction = (messageId: string, emoji: string) => {
-    if (!activeChat) return;
+    if (!activeChat || !currentUser) return;
 
     setChats(prevChats =>
       prevChats.map(chat =>
@@ -137,7 +108,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
                       ...msg,
                       reactions: [
                         ...(msg.reactions || []),
-                        { emoji, userId: currentUser.id }
+                        { emoji, userId: currentUser!.id }
                       ]
                     }
                   : msg
@@ -185,11 +156,51 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setSearchResult(null);
   };
 
+  const createChatWithUser = (apiUser: ApiUser) => {
+    if (!currentUser) return;
+    
+    // Convert ApiUser to User format
+    const newUser: User = {
+      id: apiUser.id.toString(),
+      name: apiUser.display_name || apiUser.username,
+      avatar: apiUser.avatar_url || 'https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=150',
+      status: apiUser.status === 'away' ? 'offline' : apiUser.status
+    };
+
+    // Check if chat already exists
+    const existingChat = chats.find(chat => 
+      chat.participants.some(p => p.id === newUser.id)
+    );
+
+    if (existingChat) {
+      // If chat exists, just set it as active
+      setActiveChat(existingChat);
+      console.log('Chat already exists, switching to:', existingChat);
+      return;
+    }
+
+    // Create new chat
+    const newChat: Chat = {
+      id: `chat-${newUser.id}`,
+      participants: [currentUser, newUser],
+      messages: [],
+      unreadCount: 0
+    };
+
+    // Add to chats list
+    setChats(prevChats => [newChat, ...prevChats]);
+    
+    // Set as active chat
+    setActiveChat(newChat);
+    
+    console.log('Created new chat with user:', newUser);
+  };
+
   return (
     <ChatContext.Provider value={{
       chats,
       activeChat,
-      currentUser,
+      currentUser: currentUser!,
       isMobileView,
       setActiveChat,
       sendMessage,
@@ -198,6 +209,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       searchUser,
       searchResult,
       clearSearchResult,
+      createChatWithUser,
       setMobileView: setIsMobileView
     }}>
       {children}

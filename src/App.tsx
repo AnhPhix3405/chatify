@@ -1,16 +1,22 @@
 import { useState } from 'react';
 import { ChatProvider } from './contexts/ChatContext';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Sidebar } from './components/Sidebar';
 import { ChatArea } from './components/ChatArea';
 import { InfoPanel } from './components/InfoPanel';
 import { Header } from './components/Header';
 import { SearchResult } from './components/SearchResult';
+import { Profile } from './components/Profile';
+import { AuthLayout } from './components/Auth/AuthLayout';
 import { useChat } from './hooks/useChat';
 
+// For demo purposes, we'll use a simple state to switch between auth and chat
+// In a real app, this would be handled by authentication state
 const AppContent = () => {
   const [showInfoPanel, setShowInfoPanel] = useState(false);
-  const { activeChat, isMobileView, searchResult, clearSearchResult } = useChat();
+  const [showProfile, setShowProfile] = useState(false);
+  const { activeChat, isMobileView, searchResult, clearSearchResult, createChatWithUser } = useChat();
 
   return (
     <div className="h-screen bg-gray-100 dark:bg-gray-900 flex flex-col">
@@ -19,6 +25,7 @@ const AppContent = () => {
         <Header 
           onInfoToggle={() => setShowInfoPanel(!showInfoPanel)}
           showInfo={showInfoPanel}
+          onProfileToggle={() => setShowProfile(!showProfile)}
         />
       )}
       
@@ -60,22 +67,39 @@ const AppContent = () => {
           user={searchResult}
           onClose={clearSearchResult}
           onAddToChat={(user) => {
-            // TODO: Implement add to chat functionality
-            console.log('Add to chat:', user);
+            createChatWithUser(user);
             clearSearchResult();
           }}
         />
       )}
+
+      {/* Profile Modal */}
+      <Profile
+        isOpen={showProfile}
+        onClose={() => setShowProfile(false)}
+      />
     </div>
+  );
+};
+
+const AppWrapper = () => {
+  const { isAuthenticated } = useAuth();
+
+  return isAuthenticated ? (
+    <ChatProvider>
+      <AppContent />
+    </ChatProvider>
+  ) : (
+    <AuthLayout />
   );
 };
 
 function App() {
   return (
     <ThemeProvider>
-      <ChatProvider>
-        <AppContent />
-      </ChatProvider>
+      <AuthProvider>
+        <AppWrapper />
+      </AuthProvider>
     </ThemeProvider>
   );
 }

@@ -55,4 +55,5 @@ export interface ChatContextType {
   searchUser: (username: string) => void;
   searchResult: ApiUser | null;
   clearSearchResult: () => void;
+  createChatWithUser: (apiUser: ApiUser) => void;
 }

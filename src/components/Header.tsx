@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
-import { Moon, Sun, Settings, Info } from 'lucide-react';
+import { Moon, Sun, Settings, Info, User } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useChat } from '../hooks/useChat';
 
 interface HeaderProps {
   onInfoToggle: () => void;
   showInfo: boolean;
+  onProfileToggle: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onInfoToggle, showInfo }) => {
+export const Header: React.FC<HeaderProps> = ({ onInfoToggle, showInfo, onProfileToggle }) => {
   const { isDark, toggleTheme } = useTheme();
   const [searchQuery, setSearchQuery] = useState('');
   const { searchUser } = useChat();
@@ -43,6 +44,13 @@ export const Header: React.FC<HeaderProps> = ({ onInfoToggle, showInfo }) => {
             }`}
           >
             <Info className="w-5 h-5" />
+          </button>
+          
+          <button 
+            onClick={onProfileToggle}
+            className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors duration-200"
+          >
+            <User className="w-5 h-5" />
           </button>
           
           <button className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors duration-200">
