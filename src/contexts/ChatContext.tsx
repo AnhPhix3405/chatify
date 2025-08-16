@@ -15,6 +15,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const loadCurrentUser = async () => {
       const savedUsername = localStorage.getItem('chatify_username');
+      const savedUserId = localStorage.getItem('chatify_user_id');
+      
+      console.log('Loading user data:', { savedUsername, savedUserId });
+      
       if (savedUsername) {
         try {
           const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.SEARCH_USER(savedUsername)));
@@ -29,6 +33,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 avatar: apiUser.avatar_url || 'https://images.pexels.com/photos/697509/pexels-photo-697509.jpeg?auto=compress&cs=tinysrgb&w=150',
                 status: apiUser.status === 'away' ? 'offline' : apiUser.status
               };
+              
+              console.log('Setting current user:', user);
               setCurrentUser(user);
               
               // Load user chats after setting current user
@@ -195,6 +201,13 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     // Get current user ID from localStorage
     const currentUserId = localStorage.getItem('chatify_user_id');
+    console.log('Creating chat with user:', { 
+      apiUser: apiUser.username, 
+      apiUserId: apiUser.id,
+      currentUserId: currentUserId,
+      currentUser: currentUser.name 
+    });
+    
     if (!currentUserId) {
       console.error('Current user ID not found in localStorage');
       return;

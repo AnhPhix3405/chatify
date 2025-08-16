@@ -16,6 +16,7 @@ export const Profile: React.FC<ProfileProps> = ({ isOpen, onClose }) => {
 
   const handleLogout = () => {
     localStorage.removeItem('chatify_username');
+    localStorage.removeItem('chatify_user_id');
     logout();
   };
 

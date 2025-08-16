@@ -29,30 +29,66 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = async (username: string, password: string) => {
-    // Simulate API call - in real app, call your API to get user data
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // Mock getting user data from API
-    // In real app, you would get this from the login API response
-    const userData = {
-      id: 1, // This should come from your API
-      username: username
-    };
-    
-    // Save both username and user ID to localStorage
-    localStorage.setItem('chatify_username', username);
-    localStorage.setItem('chatify_user_id', userData.id.toString());
-    
-    console.log('Login successful:', { username, password, userData });
-    setIsAuthenticated(true);
+    try {
+      // Call API to search user and get real user data
+      const response = await fetch(`https://chatify-api-2g1a.onrender.com/api/users/search/${username}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          const userData = data.data;
+          
+          // Save both username and user ID to localStorage
+          localStorage.setItem('chatify_username', username);
+          localStorage.setItem('chatify_user_id', userData.id.toString());
+          
+          console.log('Login successful:', { username, password, userData });
+          setIsAuthenticated(true);
+        } else {
+          console.error('User not found:', data.message);
+          alert('User not found. Please check your username.');
+        }
+      } else {
+        console.error('API call failed:', response.status);
+        alert('Login failed. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error during login:', error);
+      alert('Login failed. Please check your internet connection.');
+    }
   };
 
   const register = async (data: { fullName: string; username: string; email: string; password: string }) => {
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    console.log('Registration successful:', data);
-    setIsAuthenticated(true);
+    try {
+      // Simulate API call for registration
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // After successful registration, search for the user to get their ID
+      const response = await fetch(`https://chatify-api-2g1a.onrender.com/api/users/search/${data.username}`);
+      
+      if (response.ok) {
+        const apiResponse = await response.json();
+        if (apiResponse.success) {
+          const userData = apiResponse.data;
+          
+          // Save both username and user ID to localStorage
+          localStorage.setItem('chatify_username', data.username);
+          localStorage.setItem('chatify_user_id', userData.id.toString());
+          
+          console.log('Registration successful:', data, userData);
+          setIsAuthenticated(true);
+        } else {
+          console.error('User not found after registration:', apiResponse.message);
+          alert('Registration completed but failed to get user data. Please try logging in.');
+        }
+      } else {
+        console.error('API call failed:', response.status);
+        alert('Registration completed but failed to get user data. Please try logging in.');
+      }
+    } catch (error) {
+      console.error('Error during registration:', error);
+      alert('Registration failed. Please try again.');
+    }
   };
 
   const logout = () => {
