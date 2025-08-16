@@ -99,8 +99,14 @@ const ChatItem: React.FC<{
 };
 
 export const Sidebar: React.FC = () => {
-  const { chats, activeChat, setActiveChat, isMobileView } = useChat();
+  const { chats, activeChat, setActiveChat, isMobileView, loadChatMessages } = useChat();
   const [searchQuery, setSearchQuery] = useState('');
+
+  const handleChatSelect = (chat: Chat) => {
+    setActiveChat(chat);
+    // Load messages for this chat
+    loadChatMessages(chat.id);
+  };
 
   const filteredChats = searchQuery
     ? chats.filter(chat =>
@@ -151,7 +157,7 @@ export const Sidebar: React.FC = () => {
               key={chat.id}
               chat={chat}
               isActive={activeChat?.id === chat.id}
-              onClick={() => setActiveChat(chat)}
+              onClick={() => handleChatSelect(chat)}
             />
           ))
         ) : (

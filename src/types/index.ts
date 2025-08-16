@@ -93,4 +93,5 @@ export interface ChatContextType {
   clearSearchResult: () => void;
   createChatWithUser: (apiUser: ApiUser) => Promise<void>;
   refreshUserChats: () => Promise<void>;
+  loadChatMessages: (chatId: string) => Promise<void>;
 }

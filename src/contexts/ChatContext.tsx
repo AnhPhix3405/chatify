@@ -1,5 +1,5 @@
 import React, { createContext, useState, useEffect } from 'react';
-import { Chat, Message, User, ChatContextType, ApiUser, ApiChat, ApiChatMember } from '../types';
+import { Chat, Message, User, ChatContextType, ApiUser, ApiChat, ApiChatMember, ApiMessage } from '../types';
 import { API_CONFIG, buildApiUrl } from '../config/api';
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -115,37 +115,97 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  const sendMessage = (content: string, type: 'text' | 'image' | 'file' = 'text') => {
+  const sendMessage = async (content: string, type: 'text' | 'image' | 'file' = 'text') => {
     if (!activeChat || !currentUser) return;
 
-    const newMessage: Message = {
-      id: `msg-${Date.now()}`,
-      senderId: currentUser.id,
-      content,
-      type,
-      timestamp: new Date(),
-      seenBy: [currentUser.id]
-    };
+    const currentUserId = localStorage.getItem('chatify_user_id');
+    if (!currentUserId) return;
 
-    setChats(prevChats =>
-      prevChats.map(chat =>
-        chat.id === activeChat.id
-          ? {
-              ...chat,
-              messages: [...chat.messages, newMessage],
+    try {
+      const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.GET_CHAT_MESSAGES(activeChat.id)), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          content,
+          message_type: type,
+          sender_id: parseInt(currentUserId)
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          const apiMessage = data.data;
+          
+          const newMessage: Message = {
+            id: apiMessage.id.toString(),
+            senderId: apiMessage.sender_id.toString(),
+            content: apiMessage.content,
+            type: apiMessage.message_type,
+            timestamp: new Date(apiMessage.sent_at),
+            seenBy: [currentUserId]
+          };
+
+          // Update chats
+          setChats(prevChats =>
+            prevChats.map(chat =>
+              chat.id === activeChat.id
+                ? {
+                    ...chat,
+                    messages: [...chat.messages, newMessage],
+                    lastMessage: newMessage
+                  }
+                : chat
+            )
+          );
+
+          // Update active chat
+          setActiveChat(prev => 
+            prev ? {
+              ...prev,
+              messages: [...prev.messages, newMessage],
               lastMessage: newMessage
-            }
-          : chat
-      )
-    );
+            } : null
+          );
 
-    setActiveChat(prev => 
-      prev ? {
-        ...prev,
-        messages: [...prev.messages, newMessage],
-        lastMessage: newMessage
-      } : null
-    );
+          console.log('Message sent successfully:', newMessage);
+        }
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+      
+      // Fallback to local state update if API fails
+      const newMessage: Message = {
+        id: `msg-${Date.now()}`,
+        senderId: currentUser.id,
+        content,
+        type,
+        timestamp: new Date(),
+        seenBy: [currentUser.id]
+      };
+
+      setChats(prevChats =>
+        prevChats.map(chat =>
+          chat.id === activeChat.id
+            ? {
+                ...chat,
+                messages: [...chat.messages, newMessage],
+                lastMessage: newMessage
+              }
+            : chat
+        )
+      );
+
+      setActiveChat(prev => 
+        prev ? {
+          ...prev,
+          messages: [...prev.messages, newMessage],
+          lastMessage: newMessage
+        } : null
+      );
+    }
   };
 
   const addReaction = (messageId: string, emoji: string) => {
@@ -304,6 +364,51 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Load messages for a specific chat
+  const loadChatMessages = async (chatId: string) => {
+    try {
+      const currentUserId = localStorage.getItem('chatify_user_id');
+      const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.GET_CHAT_MESSAGES(chatId) + `?userId=${currentUserId}&limit=100`));
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          const apiMessages = data.data.messages;
+          
+          // Convert API messages to frontend format
+          const formattedMessages: Message[] = apiMessages.map((apiMessage: ApiMessage) => ({
+            id: apiMessage.id.toString(),
+            senderId: apiMessage.sender_id.toString(),
+            content: apiMessage.content,
+            type: apiMessage.message_type as 'text' | 'image' | 'file',
+            timestamp: new Date(apiMessage.sent_at),
+            seenBy: []
+          }));
+
+          // Update the specific chat with messages
+          setChats(prevChats =>
+            prevChats.map(chat =>
+              chat.id === chatId
+                ? { ...chat, messages: formattedMessages }
+                : chat
+            )
+          );
+
+          // Update active chat if it matches
+          setActiveChat(prevActiveChat => 
+            prevActiveChat && prevActiveChat.id === chatId
+              ? { ...prevActiveChat, messages: formattedMessages }
+              : prevActiveChat
+          );
+
+          console.log('Loaded messages for chat:', chatId, formattedMessages);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading chat messages:', error);
+    }
+  };
+
   return (
     <ChatContext.Provider value={{
       chats,
@@ -319,7 +424,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       clearSearchResult,
       createChatWithUser,
       setMobileView: setIsMobileView,
-      refreshUserChats
+      refreshUserChats,
+      loadChatMessages
     }}>
       {children}
     </ChatContext.Provider>

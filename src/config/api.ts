@@ -9,6 +9,7 @@ export const API_CONFIG = {
     GET_USER_CHATS: (userId: string) => `/api/chats?userId=${userId}`,
     GET_USER_CHATS_WITH_LAST_MESSAGES: (userId: string) => `/api/chats/user/${userId}/with-last-messages`,
     GET_LAST_MESSAGE: (chatId: string) => `/api/chats/${chatId}/last-message`,
+    GET_CHAT_MESSAGES: (chatId: string) => `/api/chats/${chatId}/messages`,
     MESSAGES: '/api/messages'
   }
 };
