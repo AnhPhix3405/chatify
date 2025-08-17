@@ -100,9 +100,15 @@ const ChatItem: React.FC<{
 };
 
 export const Sidebar: React.FC = () => {
-  const { chats, activeChat, setActiveChat, isMobileView, loadChatMessages, searchUser, searchResult, clearSearchResult, createChatWithUser } = useChat();
+  const { chats, activeChat, setActiveChat, isMobileView, loadChatMessages, searchUser, searchResult, clearSearchResult, createChatWithUser, currentUser } = useChat();
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [searchUsername, setSearchUsername] = useState('');
+
+  console.log('Sidebar rendering with chats:', chats.length);
+  console.log('Current user:', currentUser);
+  chats.forEach(chat => {
+    console.log(`Chat ${chat.id}: created_by=${chat.created_by}, hasLastMessage=${!!chat.lastMessage}, messagesCount=${chat.messages?.length || 0}`);
+  });
 
   const handleChatSelect = (chat: Chat) => {
     setActiveChat(chat);

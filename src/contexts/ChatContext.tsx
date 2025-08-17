@@ -9,6 +9,30 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [activeChat, setActiveChat] = useState<Chat | null>(null);
   const [isMobileView, setIsMobileView] = useState(false);
   const [searchResult, setSearchResult] = useState<ApiUser | null>(null);
+
+  // Helper function to filter chats
+  const filterChats = (chatsToFilter: Chat[], currentUserId: string) => {
+    return chatsToFilter.filter((chat) => {
+      const hasMessages = chat.lastMessage || chat.messages.length > 0;
+      const isCreator = chat.created_by === currentUserId;
+      
+      console.log(`Filtering chat ${chat.id}: hasMessages=${hasMessages}, isCreator=${isCreator}, created_by=${chat.created_by}, currentUserId=${currentUserId}`);
+      
+      // If chat has messages, show to everyone
+      if (hasMessages) {
+        console.log(`Chat ${chat.id}: Showing because has messages`);
+        return true;
+      }
+      // If no messages, only show to creator
+      if (isCreator) {
+        console.log(`Chat ${chat.id}: Showing because user is creator`);
+        return true;
+      }
+      
+      console.log(`Chat ${chat.id}: Hiding because no messages and user is not creator`);
+      return false;
+    });
+  };
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   // Load user data when component mounts
@@ -30,6 +54,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
               const user: User = {
                 id: apiUser.id.toString(),
                 name: apiUser.display_name || apiUser.username,
+                display_name: apiUser.display_name,
                 avatar: apiUser.avatar_url || 'https://images.pexels.com/photos/697509/pexels-photo-697509.jpeg?auto=compress&cs=tinysrgb&w=150',
                 status: apiUser.status === 'away' ? 'offline' : apiUser.status
               };
@@ -97,14 +122,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
           });
 
           // Filter chats: if no messages, only show to creator
-          const filteredChats = formattedChats.filter((chat) => {
-            // If chat has messages, show to everyone
-            if (chat.lastMessage || chat.messages.length > 0) {
-              return true;
-            }
-            // If no messages, only show to creator
-            return chat.created_by === userId;
-          });
+          const filteredChats = filterChats(formattedChats, userId);
           
           console.log('Loaded direct chats with last messages:', filteredChats);
           setChats(filteredChats);
@@ -348,8 +366,15 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
             unreadCount: 0
           };
 
-          // Add to chats list
-          setChats(prevChats => [newChat, ...prevChats]);
+          // Add to chats list - but only if it should be visible based on filtering rules
+          setChats(prevChats => {
+            const allChats = [newChat, ...prevChats];
+            // Apply filtering to ensure consistent behavior
+            if (currentUser) {
+              return filterChats(allChats, currentUser.id);
+            }
+            return allChats;
+          });
           
           // Set as active chat
           setActiveChat(newChat);
