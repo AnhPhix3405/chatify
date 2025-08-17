@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Plus, MessageCircle } from 'lucide-react';
+import { Plus, MessageCircle, UserPlus } from 'lucide-react';
 import { useChat } from '../hooks/useChat';
 import { Chat, User } from '../types';
 
@@ -99,8 +99,9 @@ const ChatItem: React.FC<{
 };
 
 export const Sidebar: React.FC = () => {
-  const { chats, activeChat, setActiveChat, isMobileView, loadChatMessages } = useChat();
-  const [searchQuery, setSearchQuery] = useState('');
+  const { chats, activeChat, setActiveChat, isMobileView, loadChatMessages, searchUser, searchResult, clearSearchResult, createChatWithUser } = useChat();
+  const [showSearchModal, setShowSearchModal] = useState(false);
+  const [searchUsername, setSearchUsername] = useState('');
 
   const handleChatSelect = (chat: Chat) => {
     setActiveChat(chat);
@@ -108,13 +109,29 @@ export const Sidebar: React.FC = () => {
     loadChatMessages(chat.id);
   };
 
-  const filteredChats = searchQuery
-    ? chats.filter(chat =>
-        chat.participants.some(p => 
-          p.name.toLowerCase().includes(searchQuery.toLowerCase())
-        )
-      )
-    : chats;
+  const handleSearchUser = () => {
+    setShowSearchModal(true);
+  };
+
+  const handleCloseSearchModal = () => {
+    setShowSearchModal(false);
+    setSearchUsername('');
+    clearSearchResult();
+  };
+
+  const handleUserSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchUsername.trim()) {
+      searchUser(searchUsername.trim());
+    }
+  };
+
+  const handleCreateChat = () => {
+    if (searchResult) {
+      createChatWithUser(searchResult);
+      handleCloseSearchModal();
+    }
+  };
 
   return (
     <div className={`
@@ -123,36 +140,29 @@ export const Sidebar: React.FC = () => {
     `}>
       {/* Header */}
       <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+        {/* Search User Button */}
+        <button 
+          onClick={handleSearchUser}
+          className="w-full mb-4 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg p-3 text-left transition-colors duration-200"
+        >
+          <div className="flex items-center space-x-3">
+            <UserPlus className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+            <span className="text-gray-600 dark:text-gray-300">Search on Chatify</span>
+          </div>
+        </button>
+
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center space-x-2">
             <MessageCircle className="w-8 h-8 text-blue-500" />
             <h1 className="text-xl font-bold text-gray-900 dark:text-white">Chatify</h1>
           </div>
         </div>
-        
-        {/* Search */}
-        <div className="relative">
-          <Search className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 ${isMobileView ? 'left-4' : ''}`} />
-          <input
-            type="text"
-            placeholder="Search chats..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className={`
-              w-full pr-4 py-2 bg-gray-50 dark:bg-gray-700 border-0 rounded-lg text-sm 
-              text-gray-900 dark:text-white placeholder-gray-500 
-              focus:bg-white dark:focus:bg-gray-600 focus:ring-2 focus:ring-blue-500 
-              transition-all duration-200
-              ${isMobileView ? 'pl-12 py-3' : 'pl-10'}
-            `}
-          />
-        </div>
       </div>
 
       {/* Chat List */}
       <div className="flex-1 overflow-y-auto">
-        {filteredChats.length > 0 ? (
-          filteredChats.map((chat) => (
+        {chats.length > 0 ? (
+          chats.map((chat) => (
             <ChatItem
               key={chat.id}
               chat={chat}
@@ -181,6 +191,62 @@ export const Sidebar: React.FC = () => {
           </button>
         )}
       </div>
+
+      {/* Search User Modal */}
+      {showSearchModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-96 max-w-md mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Search User</h2>
+              <button
+                onClick={handleCloseSearchModal}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <form onSubmit={handleUserSearch} className="mb-4">
+              <input
+                type="text"
+                value={searchUsername}
+                onChange={(e) => setSearchUsername(e.target.value)}
+                placeholder="Enter username..."
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                autoFocus
+              />
+              <button
+                type="submit"
+                className="w-full mt-3 bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg transition-colors duration-200"
+              >
+                Search
+              </button>
+            </form>
+
+            {searchResult && (
+              <div className="border-t border-gray-200 dark:border-gray-600 pt-4">
+                <div className="flex items-center space-x-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  <img
+                    src={searchResult.avatar_url || 'https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=150'}
+                    alt={searchResult.username}
+                    className="w-10 h-10 rounded-full"
+                  />
+                  <div className="flex-1">
+                    <h3 className="font-medium text-gray-900 dark:text-white">{searchResult.display_name || searchResult.username}</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">@{searchResult.username}</p>
+                  </div>
+                  <button
+                    onClick={handleCreateChat}
+                    className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm transition-colors duration-200"
+                  >
+                    Chat
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

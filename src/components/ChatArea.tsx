@@ -80,13 +80,7 @@ const MessageBubble: React.FC<{
         )}
       </div>
       
-      {isOwn && (
-        <img
-          src="/api/placeholder/32/32"
-          alt="You"
-          className="w-8 h-8 rounded-full ml-2 self-end"
-        />
-      )}
+      {/* Removed avatar for current user messages */}
     </div>
   );
 };
