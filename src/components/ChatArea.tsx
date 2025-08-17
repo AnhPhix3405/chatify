@@ -22,7 +22,7 @@ const MessageBubble: React.FC<{
       {!isOwn && (
         <img
           src={sender.avatar}
-          alt={sender.name}
+          alt={sender.display_name || sender.name}
           className="w-8 h-8 rounded-full mr-2 self-end"
         />
       )}
@@ -211,12 +211,12 @@ export const ChatArea: React.FC = () => {
             
             <img
               src={otherParticipant?.avatar}
-              alt={otherParticipant?.name}
+              alt={otherParticipant?.display_name || otherParticipant?.name}
               className="w-10 h-10 rounded-full"
             />
             <div>
               <h2 className="font-semibold text-gray-900 dark:text-white">
-                {otherParticipant?.name}
+                {otherParticipant?.display_name || otherParticipant?.name}
               </h2>
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 {otherParticipant?.status === 'online' ? 'Online' : 

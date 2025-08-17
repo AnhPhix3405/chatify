@@ -1,6 +1,7 @@
 export interface User {
   id: string;
   name: string;
+  display_name?: string;
   avatar: string;
   status: 'online' | 'offline' | 'typing';
   lastSeen?: string;
@@ -24,6 +25,7 @@ export interface ApiChatMember {
   user: {
     id: number;
     username: string;
+    display_name?: string;
     avatar_url?: string;
     status: 'online' | 'offline' | 'away';
   };

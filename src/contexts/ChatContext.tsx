@@ -67,6 +67,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const participants: User[] = apiChat.members.map((member: ApiChatMember) => ({
               id: member.user.id.toString(),
               name: member.user.username,
+              display_name: member.user.display_name,
               avatar: member.user.avatar_url || 'https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=150',
               status: member.user.status === 'away' ? 'offline' : member.user.status
             }));
@@ -236,7 +237,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const searchChats = (query: string): Chat[] => {
     return chats.filter(chat =>
       chat.participants.some(p => 
-        p.name.toLowerCase().includes(query.toLowerCase())
+        (p.display_name || p.name).toLowerCase().includes(query.toLowerCase())
       ) ||
       chat.messages.some(m => 
         m.content.toLowerCase().includes(query.toLowerCase())
@@ -322,6 +323,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const participants: User[] = apiChat.members.map((member: ApiChatMember) => ({
             id: member.user.id.toString(),
             name: member.user.username,
+            display_name: member.user.display_name,
             avatar: member.user.avatar_url || 'https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=150',
             status: member.user.status === 'away' ? 'offline' : member.user.status
           }));

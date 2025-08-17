@@ -26,6 +26,7 @@ const ChatItem: React.FC<{
   
   // Find the other participant (not the current user)
   const otherParticipant = chat.participants.find((p: User) => p.id !== currentUser?.id);
+  console.log('Debug otherParticipant:', otherParticipant);
   if (!otherParticipant) return null;
 
   const lastMessage = chat.lastMessage || (chat.messages.length > 0 ? chat.messages[chat.messages.length - 1] : null);
@@ -51,7 +52,7 @@ const ChatItem: React.FC<{
       <div className="relative">
         <img
           src={otherParticipant.avatar}
-          alt={otherParticipant.name}
+          alt={otherParticipant.display_name || otherParticipant.name}
           className="w-12 h-12 rounded-full object-cover"
         />
         <StatusIndicator user={otherParticipant} />
@@ -60,7 +61,7 @@ const ChatItem: React.FC<{
       <div className="ml-3 flex-1 min-w-0">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-gray-900 dark:text-white truncate">
-            {otherParticipant.name}
+            {otherParticipant.display_name || otherParticipant.name}
           </h3>
           {lastMessage && (
             <span className="text-xs text-gray-500 dark:text-gray-400">

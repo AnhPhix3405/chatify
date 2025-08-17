@@ -40,6 +40,7 @@ class ChatController {
                 user: user ? { 
                   id: user.id, 
                   username: user.username, 
+                  display_name: user.display_name,
                   avatar_url: user.avatar_url, 
                   status: user.status 
                 } : null
@@ -527,6 +528,7 @@ class ChatController {
                 user: user ? { 
                   id: user.id, 
                   username: user.username, 
+                  display_name: user.display_name,
                   avatar_url: user.avatar_url, 
                   status: user.status 
                 } : null

@@ -38,11 +38,11 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({ isOpen, onClose }) => {
         <div className="text-center">
           <img
             src={otherParticipant?.avatar}
-            alt={otherParticipant?.name}
+            alt={otherParticipant?.display_name || otherParticipant?.name}
             className="w-20 h-20 rounded-full mx-auto mb-3"
           />
           <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
-            {otherParticipant?.name}
+            {otherParticipant?.display_name || otherParticipant?.name}
           </h4>
           <p className="text-sm text-gray-500 dark:text-gray-400">
             {otherParticipant?.status === 'online' ? 'Online' : 'Last seen 2 hours ago'}

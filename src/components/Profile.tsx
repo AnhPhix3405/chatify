@@ -40,7 +40,7 @@ export const Profile: React.FC<ProfileProps> = ({ isOpen, onClose }) => {
             {currentUser.avatar ? (
               <img
                 src={currentUser.avatar}
-                alt={currentUser.name}
+                alt={currentUser.display_name || currentUser.name}
                 className="w-24 h-24 rounded-full object-cover"
               />
             ) : (
@@ -55,7 +55,7 @@ export const Profile: React.FC<ProfileProps> = ({ isOpen, onClose }) => {
           </div>
 
           <h4 className="text-xl font-semibold text-gray-900 dark:text-white mb-1">
-            {currentUser.name}
+            {currentUser.display_name || currentUser.name}
           </h4>
           <p className="text-sm text-gray-600 dark:text-gray-400 capitalize">
             {currentUser.status}
