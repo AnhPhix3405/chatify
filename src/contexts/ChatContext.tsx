@@ -88,15 +88,26 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
             return {
               id: apiChat.id.toString(),
               type: apiChat.type,
+              created_by: apiChat.created_by.toString(),
               participants,
               messages: lastMessage ? [lastMessage] : [], // Include last message in messages array
               lastMessage,
               unreadCount: 0
             };
           });
+
+          // Filter chats: if no messages, only show to creator
+          const filteredChats = formattedChats.filter((chat) => {
+            // If chat has messages, show to everyone
+            if (chat.lastMessage || chat.messages.length > 0) {
+              return true;
+            }
+            // If no messages, only show to creator
+            return chat.created_by === userId;
+          });
           
-          console.log('Loaded direct chats with last messages:', formattedChats);
-          setChats(formattedChats);
+          console.log('Loaded direct chats with last messages:', filteredChats);
+          setChats(filteredChats);
         }
       }
     } catch (error) {
@@ -331,6 +342,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const newChat: Chat = {
             id: apiChat.id.toString(),
             type: apiChat.type,
+            created_by: apiChat.created_by.toString(),
             participants,
             messages: [],
             unreadCount: 0

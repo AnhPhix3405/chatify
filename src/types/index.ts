@@ -51,6 +51,7 @@ export interface ApiChat {
   type: string;
   name?: string;
   avatar_url?: string;
+  created_by: number;
   members: ApiChatMember[];
   lastMessage?: ApiMessage;
 }
@@ -73,6 +74,7 @@ export interface Reaction {
 export interface Chat {
   id: string;
   type?: string;
+  created_by?: string;
   participants: User[];
   messages: Message[];
   lastMessage?: Message;
