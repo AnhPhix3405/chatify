@@ -2,7 +2,7 @@ import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { Chat, Message, User, ChatContextType, ApiUser, ApiChat, ApiChatMember, ApiMessage } from '../types';
 import { API_CONFIG, buildApiUrl } from '../config/api';
 import { socketService } from '../services/socketService';
-
+import { useNavigate } from 'react-router-dom';
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
 export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -12,6 +12,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isMobileView, setIsMobileView] = useState(false);
   const [searchResult, setSearchResult] = useState<ApiUser | null>(null);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
+  const navigate = useNavigate();
 
   // Helper function to filter chats
   const filterChats = useCallback((chatsToFilter: Chat[], currentUserId: string) => {
@@ -461,22 +462,28 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = useCallback(async () => {
     console.log('Logging out...');
     
-    socketService.removeAllListeners();
-    socketService.disconnect();
+     try {
+      // 1. Disconnect WebSocket
+      socketService.removeAllListeners();
+      socketService.disconnect();
+    } catch (error) {
+      console.warn('Error disconnecting WebSocket:', error);
+    }
     
+    // 2. Clear localStorage
     localStorage.removeItem('user_id');
     localStorage.removeItem('user_data');
     
-    // 4. Reset all states
+    // 3. Reset all states
     setCurrentUser(null);
     setChats([]);
     setActiveChat(null);
     setSearchResult(null);
     setIsLoadingUser(false);
     
-    // 5. Redirect to login
-    window.location.href = '/login';
-  }, []);
+    // 4. Navigate to login using React Router
+    navigate('/login', { replace: true });
+  }, [navigate]);
 
   const contextValue: ChatContextType = {
     chats,
