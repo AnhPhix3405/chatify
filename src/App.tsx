@@ -1,7 +1,10 @@
 import { useState } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ChatProvider } from './contexts/ChatContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { ToastProvider } from './components/ui/ToastProvider';
+import { ToastContainer } from './components/ui/ToastContainer';
 import { Sidebar } from './components/Sidebar';
 import { ChatArea } from './components/ChatArea';
 import { InfoPanel } from './components/InfoPanel';
@@ -82,11 +85,11 @@ const AppContent = () => {
   );
 };
 
-// Main app wrapper that handles authentication state
-const AppWrapper = () => {
+// Protected Route component
+const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, isLoading } = useAuth();
+  const location = useLocation();
 
-  // Show loading screen while checking authentication
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
@@ -98,26 +101,49 @@ const AppWrapper = () => {
     );
   }
 
-  // Handle authentication success
+  if (!isAuthenticated) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  return <>{children}</>;
+};
+
+// Authentication wrapper component
+const AuthWrapper = () => {
+  const { isAuthenticated } = useAuth();
+
   const handleAuthSuccess = (user: User) => {
     console.log('User authenticated successfully:', user);
     // The auth context will automatically update isAuthenticated state
+    // and redirect will happen automatically when component re-renders
   };
 
-  return isAuthenticated ? (
-    <ChatProvider>
-      <AppContent />
-    </ChatProvider>
-  ) : (
-    <AuthApp onAuthSuccess={handleAuthSuccess} />
-  );
+  if (isAuthenticated) {
+    return <Navigate to="/" replace />;
+  }
+
+  return <AuthApp onAuthSuccess={handleAuthSuccess} />;
 };
 
 function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <AppWrapper />
+        <ToastProvider>
+          <Router>
+            <Routes>
+              <Route path="/login" element={<AuthWrapper />} />
+              <Route path="/" element={
+                <ProtectedRoute>
+                  <ChatProvider>
+                    <AppContent />
+                  </ChatProvider>
+                </ProtectedRoute>
+              } />
+            </Routes>
+          </Router>
+          <ToastContainer />
+        </ToastProvider>
       </AuthProvider>
     </ThemeProvider>
   );

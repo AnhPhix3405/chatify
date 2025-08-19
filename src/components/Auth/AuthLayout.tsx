@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { LoginPage } from './LoginPage';
 import { RegisterPage } from './RegisterPage';
-import { AuthService, LoginCredentials, RegisterData } from '../../services/authService';
+import { useAuth } from '../../contexts/AuthContext';
 import { User } from '../../types';
 
 interface AuthLayoutProps {
@@ -12,19 +12,24 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({ onAuthSuccess }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string>('');
+  const { login, register, currentUser, isAuthenticated } = useAuth();
+
+  // Listen for authentication success
+  useEffect(() => {
+    if (isAuthenticated && currentUser) {
+      onAuthSuccess(currentUser);
+    }
+  }, [isAuthenticated, currentUser, onAuthSuccess]);
 
   const handleLogin = async (email: string, password: string) => {
     setIsLoading(true);
     setError('');
 
     try {
-      const credentials: LoginCredentials = { username: email, password };
-      const result = await AuthService.login(credentials);
+      const success = await login({ username: email, password });
       
-      if (result.success && result.data) {
-        onAuthSuccess(result.data.user);
-      } else {
-        setError(result.message);
+      if (!success) {
+        setError('Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.');
       }
     } catch {
       setError('Đã xảy ra lỗi không mong muốn');
@@ -38,13 +43,10 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({ onAuthSuccess }) => {
     setError('');
 
     try {
-      const registerData: RegisterData = { username, email, password };
-      const result = await AuthService.register(registerData);
+      const success = await register({ username, email, password });
       
-      if (result.success && result.data) {
-        onAuthSuccess(result.data.user);
-      } else {
-        setError(result.message);
+      if (!success) {
+        setError('Đăng ký thất bại. Vui lòng thử lại.');
       }
     } catch {
       setError('Đã xảy ra lỗi không mong muốn');
