@@ -4,16 +4,27 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const { Pool } = require('pg');
+const { createServer } = require('http');
+const { Server } = require('socket.io');
 const chatRoute = require('./routes/chatRoute')
 const messageRoute = require('./routes/messageRoute')
 const messageStatusRoute = require('./routes/messageStatusRoute')
 const userRoute = require('./routes/userRoute');
+
 class ChatifyAPI {
   constructor() {
     this.app = express();
+    this.server = createServer(this.app); // Create HTTP server
+    this.io = new Server(this.server, {   // Create Socket.IO server
+      cors: {
+        origin: "*", // Allow all origins for now, restrict in production
+        methods: ["GET", "POST"]
+      }
+    });
     this.port = process.env.PORT || 10000; // Render uses port 10000
     this.initDatabase();
     this.setupMiddleware();
+    this.setupWebSocket();
     this.setupRoutes();
     this.setupErrorHandling();
   }
@@ -91,6 +102,47 @@ class ChatifyAPI {
     // Body parsing middleware
     this.app.use(express.json({ limit: '10mb' }));
     this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+    // Add io to request object for controllers
+    this.app.use((req, res, next) => {
+      req.io = this.io;
+      next();
+    });
+  }
+
+  setupWebSocket() {
+    this.io.on('connection', (socket) => {
+      const userId = socket.handshake.query.userId;
+      
+      if (!userId) {
+        console.error('User ID is missing in WebSocket connection');
+        socket.disconnect();
+        return;
+      }
+
+      console.log(`🔌 User ${userId} connected via WebSocket`);
+      socket.userId = userId;
+
+      // Join user to their personal room
+      socket.join(`user_${userId}`);
+
+      // Handle message send event
+      socket.on('message:send', async (data) => {
+        try {
+          console.log('📨 Received message via WebSocket:', data);
+          const MessageController = require('./controllers/messageController');
+          await MessageController.handleWebSocketMessage(socket, this.io, data);
+        } catch (error) {
+          console.error('❌ Error handling WebSocket message:', error);
+          socket.emit('error', { message: 'Failed to send message' });
+        }
+      });
+
+      // Handle disconnect
+      socket.on('disconnect', () => {
+        console.log(`🔌 User ${userId} disconnected from WebSocket`);
+      });
+    });
   }
 
   setupRoutes() {
@@ -169,7 +221,7 @@ class ChatifyAPI {
   }
 
   start() {
-    this.app.listen(this.port, () => {
+    this.server.listen(this.port, () => {
       console.log(`
 🚀 Chatify API Server Started
 📍 Port: ${this.port}
@@ -178,6 +230,7 @@ class ChatifyAPI {
 📊 Database Name: ${process.env.DB_NAME}
 👤 Database User: ${process.env.DB_USER}
 📱 Frontend: ${process.env.FRONTEND_URL}
+🔌 WebSocket: Available at /socket.io/
       `);
     });
   }

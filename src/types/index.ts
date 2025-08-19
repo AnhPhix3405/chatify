@@ -99,3 +99,41 @@ export interface ChatContextType {
   refreshUserChats: () => Promise<void>;
   loadChatMessages: (chatId: string) => Promise<void>;
 }
+
+
+// WebSocket event types
+export interface SocketNewMessageData {
+  message: {
+    id: number;
+    chat_id: number;
+    sender_id: number;
+    content: string;
+    message_type: string;
+    sent_at: string;
+    sender?: {
+      id: number;
+      username: string;
+      avatar_url?: string;
+    };
+  };
+  chatId: string;
+}
+
+export interface SocketMessageUpdateData {
+  message: {
+    id: number;
+    chat_id: number;
+    sender_id: number;
+    content: string;
+    message_type: string;
+    sent_at: string;
+  };
+  chatId: string;
+  updatedBy: string;
+}
+
+export interface SocketMessageDeleteData {
+  messageId: string;
+  chatId: string;
+  deletedBy: string;
+}

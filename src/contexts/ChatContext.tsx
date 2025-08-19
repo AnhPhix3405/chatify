@@ -1,6 +1,7 @@
 import React, { createContext, useState, useEffect } from 'react';
-import { Chat, Message, User, ChatContextType, ApiUser, ApiChat, ApiChatMember, ApiMessage } from '../types';
+import { Chat, Message, User, ChatContextType, ApiUser, ApiChat, ApiChatMember, ApiMessage, SocketNewMessageData, SocketMessageUpdateData, SocketMessageDeleteData } from '../types';
 import { API_CONFIG, buildApiUrl } from '../config/api';
+import { socketService } from '../services/socketService';
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
@@ -74,6 +75,166 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     loadCurrentUser();
   }, []);
+
+  // Initialize WebSocket connection
+  useEffect(() => {
+    const currentUserId = localStorage.getItem('chatify_user_id');
+    if (currentUserId && currentUser) {
+      console.log('Connecting to WebSocket...');
+      socketService.connect(currentUserId);
+
+      // Listen for new messages
+      socketService.onNewMessage((data: SocketNewMessageData) => {
+        console.log('Received new message via WebSocket:', data);
+        handleNewMessageFromSocket(data);
+      });
+
+      // Listen for message updates
+      socketService.onMessageUpdated((data: SocketMessageUpdateData) => {
+        console.log('Received message update via WebSocket:', data);
+        handleMessageUpdateFromSocket(data);
+      });
+
+      // Listen for message deletions
+      socketService.onMessageDeleted((data: SocketMessageDeleteData) => {
+        console.log('Received message deletion via WebSocket:', data);
+        handleMessageDeleteFromSocket(data);
+      });
+
+      // Cleanup on unmount
+      return () => {
+        socketService.removeAllListeners();
+        socketService.disconnect();
+      };
+    }
+  }, [currentUser]);
+
+  // Handle new message from WebSocket
+  const handleNewMessageFromSocket = (data: SocketNewMessageData) => {
+    const { message, chatId } = data;
+    
+    const newMessage: Message = {
+      id: message.id.toString(),
+      senderId: message.sender_id.toString(),
+      content: message.content,
+      type: message.message_type as 'text' | 'image' | 'file',
+      timestamp: new Date(message.sent_at),
+      seenBy: []
+    };
+
+    // Update chats list
+    setChats(prevChats => {
+      return prevChats.map(chat => {
+        if (chat.id === chatId) {
+          const updatedMessages = [...chat.messages, newMessage];
+          return {
+            ...chat,
+            messages: updatedMessages,
+            lastMessage: newMessage
+          };
+        }
+        return chat;
+      });
+    });
+
+    // Update active chat if it matches
+    setActiveChat(prevActiveChat => {
+      if (prevActiveChat && prevActiveChat.id === chatId) {
+        return {
+          ...prevActiveChat,
+          messages: [...prevActiveChat.messages, newMessage],
+          lastMessage: newMessage
+        };
+      }
+      return prevActiveChat;
+    });
+
+    // Apply filtering to ensure consistent behavior
+    if (currentUser) {
+      setChats(prevChats => filterChats(prevChats, currentUser.id));
+    }
+  };
+
+  // Handle message update from WebSocket
+  const handleMessageUpdateFromSocket = (data: SocketMessageUpdateData) => {
+    const { message, chatId } = data;
+    
+    const updatedMessage: Message = {
+      id: message.id.toString(),
+      senderId: message.sender_id.toString(),
+      content: message.content,
+      type: message.message_type as 'text' | 'image' | 'file',
+      timestamp: new Date(message.sent_at),
+      seenBy: []
+    };
+
+    // Update chats
+    setChats(prevChats =>
+      prevChats.map(chat => {
+        if (chat.id === chatId) {
+          const updatedMessages = chat.messages.map(msg =>
+            msg.id === updatedMessage.id ? updatedMessage : msg
+          );
+          return {
+            ...chat,
+            messages: updatedMessages,
+            lastMessage: chat.lastMessage?.id === updatedMessage.id ? updatedMessage : chat.lastMessage
+          };
+        }
+        return chat;
+      })
+    );
+
+    // Update active chat
+    setActiveChat(prevActiveChat => {
+      if (prevActiveChat && prevActiveChat.id === chatId) {
+        const updatedMessages = prevActiveChat.messages.map(msg =>
+          msg.id === updatedMessage.id ? updatedMessage : msg
+        );
+        return {
+          ...prevActiveChat,
+          messages: updatedMessages,
+          lastMessage: prevActiveChat.lastMessage?.id === updatedMessage.id ? updatedMessage : prevActiveChat.lastMessage
+        };
+      }
+      return prevActiveChat;
+    });
+  };
+
+  // Handle message deletion from WebSocket
+  const handleMessageDeleteFromSocket = (data: SocketMessageDeleteData) => {
+    const { messageId, chatId } = data;
+
+    // Update chats
+    setChats(prevChats =>
+      prevChats.map(chat => {
+        if (chat.id === chatId) {
+          const filteredMessages = chat.messages.filter(msg => msg.id !== messageId);
+          const newLastMessage = filteredMessages.length > 0 ? filteredMessages[filteredMessages.length - 1] : undefined;
+          return {
+            ...chat,
+            messages: filteredMessages,
+            lastMessage: newLastMessage
+          };
+        }
+        return chat;
+      })
+    );
+
+    // Update active chat
+    setActiveChat(prevActiveChat => {
+      if (prevActiveChat && prevActiveChat.id === chatId) {
+        const filteredMessages = prevActiveChat.messages.filter(msg => msg.id !== messageId);
+        const newLastMessage = filteredMessages.length > 0 ? filteredMessages[filteredMessages.length - 1] : undefined;
+        return {
+          ...prevActiveChat,
+          messages: filteredMessages,
+          lastMessage: newLastMessage
+        };
+      }
+      return prevActiveChat;
+    });
+  };
 
   // Load user chats from API with last messages
   const loadUserChats = async (userId: string) => {
@@ -151,6 +312,20 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const currentUserId = localStorage.getItem('chatify_user_id');
     if (!currentUserId) return;
 
+    // Try to send via WebSocket first
+    if (socketService.isSocketConnected()) {
+      console.log('Sending message via WebSocket');
+      socketService.sendMessage({
+        chatId: activeChat.id,
+        content,
+        message_type: type,
+        sender_id: currentUserId
+      });
+      return; // WebSocket will handle the response via onNewMessage
+    }
+
+    // Fallback to HTTP API if WebSocket not available
+    console.log('Sending message via HTTP API (WebSocket not available)');
     try {
       const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.GET_CHAT_MESSAGES(activeChat.id)), {
         method: 'POST',
@@ -200,41 +375,11 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
             } : null
           );
 
-          console.log('Message sent successfully:', newMessage);
+          console.log('Message sent successfully via HTTP:', newMessage);
         }
       }
     } catch (error) {
-      console.error('Error sending message:', error);
-      
-      // Fallback to local state update if API fails
-      const newMessage: Message = {
-        id: `msg-${Date.now()}`,
-        senderId: currentUser.id,
-        content,
-        type,
-        timestamp: new Date(),
-        seenBy: [currentUser.id]
-      };
-
-      setChats(prevChats =>
-        prevChats.map(chat =>
-          chat.id === activeChat.id
-            ? {
-                ...chat,
-                messages: [...chat.messages, newMessage],
-                lastMessage: newMessage
-              }
-            : chat
-        )
-      );
-
-      setActiveChat(prev => 
-        prev ? {
-          ...prev,
-          messages: [...prev.messages, newMessage],
-          lastMessage: newMessage
-        } : null
-      );
+      console.error('Error sending message via HTTP:', error);
     }
   };
 
