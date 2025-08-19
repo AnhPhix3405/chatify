@@ -8,12 +8,13 @@ interface ProfileProps {
 }
 
 export const Profile: React.FC<ProfileProps> = ({ isOpen, onClose }) => {
-  const { currentUser } = useChat();
+  const { currentUser, logout } = useChat();
 
   if (!isOpen || !currentUser) return null;
 
   const handleLogout = () => {
-    localStorage.removeItem('user_id');
+    logout();
+    onClose(); // Close the modal after logout
   };
 
   return (

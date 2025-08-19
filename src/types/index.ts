@@ -96,6 +96,7 @@ export interface ChatContextType {
   createChatWithUser: (apiUser: ApiUser) => Promise<void>;
   refreshUserChats: () => Promise<void>;
   loadChatMessages: (chatId: string) => Promise<void>;
+  logout: () => void;
 }
 
 

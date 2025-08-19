@@ -458,6 +458,46 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
+  // Logout function
+  const logout = useCallback(async () => {
+    console.log('Logging out...');
+    
+    // 1. Disconnect WebSocket
+    socketService.removeAllListeners();
+    socketService.disconnect();
+    
+    // 2. Optional: Call logout API
+    try {
+      const currentUserId = localStorage.getItem('user_id');
+      if (currentUserId) {
+        await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.LOGOUT), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ user_id: parseInt(currentUserId) }),
+        });
+      }
+    } catch (error) {
+      console.error('Error calling logout API:', error);
+      // Continue with logout even if API call fails
+    }
+    
+    // 3. Clear localStorage
+    localStorage.removeItem('user_id');
+    localStorage.removeItem('user_data');
+    
+    // 4. Reset all states
+    setCurrentUser(null);
+    setChats([]);
+    setActiveChat(null);
+    setSearchResult(null);
+    setIsLoadingUser(false);
+    
+    // 5. Redirect to login
+    window.location.href = '/login';
+  }, []);
+
   const contextValue: ChatContextType = {
     chats,
     activeChat,
@@ -473,7 +513,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     createChatWithUser,
     setMobileView: setIsMobileView,
     refreshUserChats,
-    loadChatMessages
+    loadChatMessages,
+    logout
   };
 
   // Don't render children until user is loaded or confirmed not logged in
