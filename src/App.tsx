@@ -8,11 +8,11 @@ import { InfoPanel } from './components/InfoPanel';
 import { Header } from './components/Header';
 import { SearchResult } from './components/SearchResult';
 import { Profile } from './components/Profile';
-import { AuthLayout } from './components/Auth/AuthLayout';
+import { AuthApp } from './components/Auth/AuthApp';
 import { useChat } from './hooks/useChat';
+import { User } from './types';
 
-// For demo purposes, we'll use a simple state to switch between auth and chat
-// In a real app, this would be handled by authentication state
+// Chat interface component
 const AppContent = () => {
   const [showInfoPanel, setShowInfoPanel] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
@@ -82,15 +82,34 @@ const AppContent = () => {
   );
 };
 
+// Main app wrapper that handles authentication state
 const AppWrapper = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
+
+  // Show loading screen while checking authentication
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-slate-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Handle authentication success
+  const handleAuthSuccess = (user: User) => {
+    console.log('User authenticated successfully:', user);
+    // The auth context will automatically update isAuthenticated state
+  };
 
   return isAuthenticated ? (
     <ChatProvider>
       <AppContent />
     </ChatProvider>
   ) : (
-    <AuthLayout />
+    <AuthApp onAuthSuccess={handleAuthSuccess} />
   );
 };
 

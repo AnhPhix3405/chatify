@@ -15,9 +15,18 @@ class User {
         password_hash TEXT,
         avatar_url TEXT,
         status TEXT,
-        last_seen INTEGER
+        last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `;
+  }
+
+  // Migration method - no longer needed since database is already updated
+  async migrateTable(db) {
+    try {
+      console.log('User table migration skipped - database already uses TIMESTAMP');
+    } catch (error) {
+      console.log('Migration note:', error.message);
+    }
   }
 
   // Get all users
@@ -92,15 +101,15 @@ class User {
     return result.rows[0] || null;
   }
 
-  // Update last seen
-  async updateLastSeen(db, id, timestamp) {
+  // Update last seen with current timestamp
+  async updateLastSeen(db, id) {
     const query = `
       UPDATE ${this.tableName}
-      SET last_seen = $1
-      WHERE id = $2
+      SET last_seen = CURRENT_TIMESTAMP
+      WHERE id = $1
       RETURNING *
     `;
-    const result = await db.query(query, [timestamp, id]);
+    const result = await db.query(query, [id]);
     return result.rows[0] || null;
   }
 

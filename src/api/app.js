@@ -10,6 +10,14 @@ const chatRoute = require('./routes/chatRoute')
 const messageRoute = require('./routes/messageRoute')
 const messageStatusRoute = require('./routes/messageStatusRoute')
 const userRoute = require('./routes/userRoute');
+const authRoute = require('./routes/authRoute');
+
+// Import models for migration
+const User = require('./models/User');
+const Chat = require('./models/Chat');
+const ChatMember = require('./models/ChatMember');
+const Message = require('./models/Message');
+const MessageStatus = require('./models/MessageStatus');
 
 class ChatifyAPI {
   constructor() {
@@ -68,6 +76,9 @@ class ChatifyAPI {
       console.log('✅ Connected to Neon.tech database successfully');
       console.log('🕐 Server time:', result.rows[0].current_time);
       client.release();
+      
+      // Run database migrations after successful connection
+      await this.runMigrations();
     } catch (error) {
       console.error('❌ Database connection failed:', error.message);
       console.error('Connection details:', {
@@ -75,6 +86,32 @@ class ChatifyAPI {
         database: process.env.DB_NAME,
         user: process.env.DB_USER
       });
+    }
+  }
+
+  async runMigrations() {
+    try {
+      console.log('🔄 Running database migrations...');
+      
+      // Create tables first
+      const userModel = new User();
+      const chatModel = new Chat();
+      const chatMemberModel = new ChatMember();
+      const messageModel = new Message();
+      const messageStatusModel = new MessageStatus();
+      
+      await this.db.query(userModel.getTableSchema());
+      await this.db.query(chatModel.getTableSchema());
+      await this.db.query(chatMemberModel.getTableSchema());
+      await this.db.query(messageModel.getTableSchema());
+      await this.db.query(messageStatusModel.getTableSchema());
+      
+      // Run specific migrations
+      await userModel.migrateTable(this.db);
+      
+      console.log('✅ Database migrations completed successfully');
+    } catch (error) {
+      console.error('❌ Database migration failed:', error.message);
     }
   }
 
@@ -176,6 +213,8 @@ class ChatifyAPI {
     this.app.use('/api', messageRoute);
     this.app.use('/api', messageStatusRoute);
     this.app.use('/api', userRoute);
+    this.app.use('/api/auth', authRoute);
+
     // API routes
     this.app.use(`/api/${process.env.API_VERSION || 'v1'}`, (req, res) => {
       res.json({

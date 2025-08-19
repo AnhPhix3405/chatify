@@ -102,7 +102,7 @@ class UserController {
         password_hash,
         avatar_url: avatar_url || null,
         status: status || 'offline',
-        last_seen: 0
+        last_seen: new Date().toISOString()
       });
       
       // Remove password from response
@@ -232,7 +232,7 @@ class UserController {
         await userModel.update(db, userId, {
           ...user,
           status: status,
-          last_seen: Date.now()
+          last_seen: new Date().toISOString()
         });
       }
     } catch (error) {
