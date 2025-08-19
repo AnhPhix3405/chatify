@@ -10,6 +10,7 @@ export const API_CONFIG = {
     
     // User endpoints
     USERS: '/api/users',
+    GET_USER_BY_ID: (userId: string) => `/api/users/${userId}`,
     SEARCH_USER: (username: string) => `/api/users/search/${username}`,
     
     // Chat endpoints

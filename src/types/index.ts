@@ -15,8 +15,6 @@ export interface ApiUser {
   avatar_url?: string;
   status: 'online' | 'offline' | 'away';
   last_seen: string; // Changed from number to string (ISO timestamp)
-  created_at: string;
-  updated_at: string;
 }
 
 export interface ApiChatMember {

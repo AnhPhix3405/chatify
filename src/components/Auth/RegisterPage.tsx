@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { User, Mail, Lock, Eye, EyeOff, ArrowLeft, ArrowRight } from 'lucide-react';
+import { buildApiUrl } from '../../config/api';
 
 interface RegisterPageProps {
   onRegister: (username: string, email: string, password: string) => void;
@@ -29,11 +30,38 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
     }
   };
 
-  const handleStep2Submit = (e: React.FormEvent) => {
+  const handleStep2Submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (formData.email.trim() && formData.password.trim() && 
         formData.password === formData.confirmPassword) {
-      onRegister(formData.username.trim(), formData.email.trim(), formData.password);
+      try {
+        const response = await fetch(buildApiUrl('/api/auth/register'), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            username: formData.username.trim(),
+            email: formData.email.trim(),
+            password: formData.password,
+            display_name: formData.username.trim()
+          }),
+        });
+
+        const result = await response.json();
+        console.log('Register result:', result);
+        
+        if (result.success && result.user) {
+          // Lưu user_id và thông tin user vào localStorage
+          localStorage.setItem('user_id', result.user.id.toString());
+          localStorage.setItem('user_data', JSON.stringify(result.user));
+          onRegister(formData.username.trim(), formData.email.trim(), formData.password);
+        } else {
+          console.error('Registration failed:', result.message || 'Unknown error');
+        }
+      } catch (error) {
+        console.error('Register error:', error);
+      }
     }
   };
 

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { User, Lock, Eye, EyeOff } from 'lucide-react';
+import { buildApiUrl } from '../../config/api';
 
 interface LoginPageProps {
   onLogin: (username: string, password: string) => void;
@@ -16,10 +17,28 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (username.trim() && password.trim()) {
-      onLogin(username.trim(), password);
+      try {
+        const response = await fetch(buildApiUrl('/api/auth/login'), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            username: username.trim(),
+            password: password
+          }),
+        });
+
+        const result = await response.json();
+        console.log('Login result:', result);
+        localStorage.setItem('user_id', result.data.user.id);
+        onLogin(username.trim(), password);
+      } catch (error) {
+        console.error('Login error:', error);
+      }
     }
   };
 

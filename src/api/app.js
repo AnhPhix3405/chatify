@@ -10,7 +10,7 @@ const chatRoute = require('./routes/chatRoute')
 const messageRoute = require('./routes/messageRoute')
 const messageStatusRoute = require('./routes/messageStatusRoute')
 const userRoute = require('./routes/userRoute');
-
+const authRoute = require('./routes/authRoute');
 class ChatifyAPI {
   constructor() {
     this.app = express();
@@ -176,6 +176,8 @@ class ChatifyAPI {
     this.app.use('/api', messageRoute);
     this.app.use('/api', messageStatusRoute);
     this.app.use('/api', userRoute);
+    this.app.use('/api', authRoute);
+
     // API routes
     this.app.use(`/api/${process.env.API_VERSION || 'v1'}`, (req, res) => {
       res.json({

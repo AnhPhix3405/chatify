@@ -14,8 +14,6 @@ export const Profile: React.FC<ProfileProps> = ({ isOpen, onClose }) => {
 
   const handleLogout = () => {
     localStorage.removeItem('user_id');
-    // Reload page để reset app
-    window.location.reload();
   };
 
   return (

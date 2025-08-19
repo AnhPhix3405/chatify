@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { ChatProvider } from './contexts/ChatContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { Sidebar } from './components/Sidebar';
@@ -93,26 +93,49 @@ const AppContent = () => {
   );
 };
 
+// Auth wrapper components that can use navigation
+const AuthLoginPage = () => {
+  const navigate = useNavigate();
+  
+  const handleLogin = async () => {
+    // Chuyển về trang home ngay lập tức
+    navigate('/');
+  };
+  
+  return (
+    <LoginPage 
+      onLogin={handleLogin} 
+      onSwitchToRegister={() => navigate('/register')} 
+      isLoading={false} 
+    />
+  );
+};
+
+const AuthRegisterPage = () => {
+  const navigate = useNavigate();
+  
+  const handleRegister = async () => {
+    // Chuyển về trang home ngay lập tức
+    navigate('/');
+  };
+  
+  return (
+    <RegisterPage 
+      onRegister={handleRegister} 
+      onSwitchToLogin={() => navigate('/login')} 
+      isLoading={false} 
+    />
+  );
+};
+
 function App() {
   return (
     <ThemeProvider>
       <Router>
         <Routes>
           {/* Auth routes */}
-          <Route path="/login" element={
-            <LoginPage 
-              onLogin={async () => {}} 
-              onSwitchToRegister={() => window.location.href = '/register'} 
-              isLoading={false} 
-            />
-          } />
-          <Route path="/register" element={
-            <RegisterPage 
-              onRegister={async () => {}} 
-              onSwitchToLogin={() => window.location.href = '/login'} 
-              isLoading={false} 
-            />
-          } />
+          <Route path="/login" element={<AuthLoginPage />} />
+          <Route path="/register" element={<AuthRegisterPage />} />
           
           {/* Main app route */}
           <Route path="/" element={
