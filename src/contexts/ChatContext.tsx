@@ -39,37 +39,24 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Load user data when component mounts
   useEffect(() => {
     const loadCurrentUser = async () => {
-      const savedUsername = localStorage.getItem('chatify_username');
-      const savedUserId = localStorage.getItem('chatify_user_id');
+      const savedUserId = localStorage.getItem('user_id');
       
-      console.log('Loading user data:', { savedUsername, savedUserId });
+      console.log('Loading user data:', { savedUserId });
       
-      if (savedUsername) {
-        try {
-          const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.SEARCH_USER(savedUsername)));
-          
-          if (response.ok) {
-            const data = await response.json();
-            if (data.success) {
-              const apiUser = data.data;
-              const user: User = {
-                id: apiUser.id.toString(),
-                name: apiUser.display_name || apiUser.username,
-                display_name: apiUser.display_name,
-                avatar: apiUser.avatar_url || 'https://images.pexels.com/photos/697509/pexels-photo-697509.jpeg?auto=compress&cs=tinysrgb&w=150',
-                status: apiUser.status === 'away' ? 'offline' : apiUser.status
-              };
-              
-              console.log('Setting current user:', user);
-              setCurrentUser(user);
-              
-              // Load user chats after setting current user
-              loadUserChats(apiUser.id.toString());
-            }
-          }
-        } catch (error) {
-          console.error('Error loading current user:', error);
-        }
+      if (savedUserId) {
+        // Tạo mock user từ user_id
+        const mockUser: User = {
+          id: savedUserId,
+          name: `User ${savedUserId}`,
+          avatar: 'https://images.pexels.com/photos/697509/pexels-photo-697509.jpeg?auto=compress&cs=tinysrgb&w=150',
+          status: 'online'
+        };
+        
+        console.log('Setting current user:', mockUser);
+        setCurrentUser(mockUser);
+        
+        // Load user chats after setting current user
+        loadUserChats(savedUserId);
       }
     };
 
@@ -78,7 +65,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Initialize WebSocket connection
   useEffect(() => {
-    const currentUserId = localStorage.getItem('chatify_user_id');
+    const currentUserId = localStorage.getItem('user_id');
     if (currentUserId && currentUser) {
       console.log('Connecting to WebSocket...');
       socketService.connect(currentUserId);
@@ -309,7 +296,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const sendMessage = async (content: string, type: 'text' | 'image' | 'file' = 'text') => {
     if (!activeChat || !currentUser) return;
 
-    const currentUserId = localStorage.getItem('chatify_user_id');
+    const currentUserId = localStorage.getItem('user_id');
     if (!currentUserId) return;
 
     // Try to send via WebSocket first
@@ -449,7 +436,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!currentUser) return;
     
     // Get current user ID from localStorage
-    const currentUserId = localStorage.getItem('chatify_user_id');
+    const currentUserId = localStorage.getItem('user_id');
     console.log('Creating chat with user:', { 
       apiUser: apiUser.username, 
       apiUserId: apiUser.id,
@@ -542,7 +529,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const refreshUserChats = async () => {
     if (!currentUser) return;
     
-    const currentUserId = localStorage.getItem('chatify_user_id');
+    const currentUserId = localStorage.getItem('user_id');
     if (currentUserId) {
       await loadUserChats(currentUserId);
     }
@@ -551,7 +538,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Load messages for a specific chat
   const loadChatMessages = async (chatId: string) => {
     try {
-      const currentUserId = localStorage.getItem('chatify_user_id');
+      const currentUserId = localStorage.getItem('user_id');
       const response = await fetch(buildApiUrl(API_CONFIG.ENDPOINTS.GET_CHAT_MESSAGES(chatId) + `?userId=${currentUserId}&limit=100`));
       
       if (response.ok) {

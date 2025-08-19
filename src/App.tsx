@@ -1,19 +1,27 @@
 import { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ChatProvider } from './contexts/ChatContext';
 import { ThemeProvider } from './contexts/ThemeContext';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { ToastProvider } from './components/ui/ToastProvider';
-import { ToastContainer } from './components/ui/ToastContainer';
 import { Sidebar } from './components/Sidebar';
 import { ChatArea } from './components/ChatArea';
 import { InfoPanel } from './components/InfoPanel';
 import { Header } from './components/Header';
 import { SearchResult } from './components/SearchResult';
 import { Profile } from './components/Profile';
-import { AuthApp } from './components/Auth/AuthApp';
+import { LoginPage } from './components/Auth/LoginPage';
+import { RegisterPage } from './components/Auth/RegisterPage';
 import { useChat } from './hooks/useChat';
-import { User } from './types';
+
+// Protected Route component
+const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const userId = localStorage.getItem('user_id');
+  
+  if (!userId) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return <>{children}</>;
+};
 
 // Chat interface component
 const AppContent = () => {
@@ -85,66 +93,37 @@ const AppContent = () => {
   );
 };
 
-// Protected Route component
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated, isLoading } = useAuth();
-  const location = useLocation();
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-slate-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
-  }
-
-  return <>{children}</>;
-};
-
-// Authentication wrapper component
-const AuthWrapper = () => {
-  const { isAuthenticated } = useAuth();
-
-  const handleAuthSuccess = (user: User) => {
-    console.log('User authenticated successfully:', user);
-    // The auth context will automatically update isAuthenticated state
-    // and redirect will happen automatically when component re-renders
-  };
-
-  if (isAuthenticated) {
-    return <Navigate to="/" replace />;
-  }
-
-  return <AuthApp onAuthSuccess={handleAuthSuccess} />;
-};
-
 function App() {
   return (
     <ThemeProvider>
-      <AuthProvider>
-        <ToastProvider>
-          <Router>
-            <Routes>
-              <Route path="/login" element={<AuthWrapper />} />
-              <Route path="/" element={
-                <ProtectedRoute>
-                  <ChatProvider>
-                    <AppContent />
-                  </ChatProvider>
-                </ProtectedRoute>
-              } />
-            </Routes>
-          </Router>
-          <ToastContainer />
-        </ToastProvider>
-      </AuthProvider>
+      <Router>
+        <Routes>
+          {/* Auth routes */}
+          <Route path="/login" element={
+            <LoginPage 
+              onLogin={async () => {}} 
+              onSwitchToRegister={() => window.location.href = '/register'} 
+              isLoading={false} 
+            />
+          } />
+          <Route path="/register" element={
+            <RegisterPage 
+              onRegister={async () => {}} 
+              onSwitchToLogin={() => window.location.href = '/login'} 
+              isLoading={false} 
+            />
+          } />
+          
+          {/* Main app route */}
+          <Route path="/" element={
+            <ProtectedRoute>
+              <ChatProvider>
+                <AppContent />
+              </ChatProvider>
+            </ProtectedRoute>
+          } />
+        </Routes>
+      </Router>
     </ThemeProvider>
   );
 }

@@ -1,7 +1,6 @@
 import React from 'react';
 import { User, Calendar, LogOut, X } from 'lucide-react';
 import { useChat } from '../hooks/useChat';
-import { useAuth } from '../contexts/AuthContext';
 
 interface ProfileProps {
   isOpen: boolean;
@@ -10,14 +9,13 @@ interface ProfileProps {
 
 export const Profile: React.FC<ProfileProps> = ({ isOpen, onClose }) => {
   const { currentUser } = useChat();
-  const { logout } = useAuth();
 
   if (!isOpen || !currentUser) return null;
 
   const handleLogout = () => {
-    localStorage.removeItem('chatify_username');
-    localStorage.removeItem('chatify_user_id');
-    logout();
+    localStorage.removeItem('user_id');
+    // Reload page để reset app
+    window.location.reload();
   };
 
   return (
