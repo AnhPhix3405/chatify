@@ -1,6 +1,6 @@
 // API Configuration
 export const API_CONFIG = {
-  BASE_URL: 'https://chatify-api-2g1a.onrender.com',
+  BASE_URL: 'http://localhost:3001',
   ENDPOINTS: {
     // Auth endpoints
     LOGIN: '/api/auth/login',
@@ -10,6 +10,7 @@ export const API_CONFIG = {
     
     // User endpoints
     USERS: '/api/users',
+    GET_USER_BY_ID: (userId: string) => `/api/users/${userId}`,
     SEARCH_USER: (username: string) => `/api/users/search/${username}`,
     
     // Chat endpoints
