@@ -1,15 +1,13 @@
 import React, { useState } from 'react';
 import { User, Mail, Lock, Eye, EyeOff, ArrowLeft, ArrowRight } from 'lucide-react';
 import { buildApiUrl } from '../../config/api';
-
+import { useNavigate } from 'react-router-dom';
 interface RegisterPageProps {
-  onRegister: (username: string, email: string, password: string) => void;
   onSwitchToLogin: () => void;
   isLoading?: boolean;
 }
 
 export const RegisterPage: React.FC<RegisterPageProps> = ({ 
-  onRegister, 
   onSwitchToLogin, 
   isLoading = false 
 }) => {
@@ -22,7 +20,7 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-
+  const navigate = useNavigate();
   const handleStep1Submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (formData.username.trim()) {
@@ -51,11 +49,9 @@ export const RegisterPage: React.FC<RegisterPageProps> = ({
         const result = await response.json();
         console.log('Register result:', result);
         
-        if (result.success && result.user) {
-          // Lưu user_id và thông tin user vào localStorage
-          localStorage.setItem('user_id', result.user.id.toString());
-          localStorage.setItem('user_data', JSON.stringify(result.user));
-          onRegister(formData.username.trim(), formData.email.trim(), formData.password);
+        if (result.success) {
+            alert("Đăng ký thành công");
+            navigate('/login'); // Redirect to login page
         } else {
           console.error('Registration failed:', result.message || 'Unknown error');
         }

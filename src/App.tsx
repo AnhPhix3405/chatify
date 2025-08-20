@@ -113,15 +113,8 @@ const AuthLoginPage = () => {
 
 const AuthRegisterPage = () => {
   const navigate = useNavigate();
-  
-  const handleRegister = async () => {
-    // Chuyển về trang home ngay lập tức
-    navigate('/');
-  };
-  
   return (
     <RegisterPage 
-      onRegister={handleRegister} 
       onSwitchToLogin={() => navigate('/login')} 
       isLoading={false} 
     />
