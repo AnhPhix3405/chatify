@@ -128,7 +128,7 @@ class UserController {
   static async updateUser(req, res) {
     try {
       const { id } = req.params;
-      const { username, email, avatar_url, status } = req.body;
+      const { username, email, avatar_url, status , display_name} = req.body;
       
       const userModel = new User();
       const user = await userModel.findById(db, id);
@@ -163,7 +163,7 @@ class UserController {
       
       const updatedUser = await userModel.update(db, id, {
         username: username || user.username,
-        display_name: username || user.display_name,
+        display_name: display_name || user.display_name,
         email: email || user.email,
         password_hash: user.password_hash, // Keep existing password
         avatar_url: avatar_url !== undefined ? avatar_url : user.avatar_url,

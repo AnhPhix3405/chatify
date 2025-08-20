@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { User, Calendar, LogOut, X, Edit3, Check, X as XIcon } from 'lucide-react';
 import { useChat } from '../hooks/useChat';
-
+import { buildApiUrl } from '../config/api';
 interface ProfileProps {
   isOpen: boolean;
   onClose: () => void;
@@ -24,10 +24,18 @@ export const Profile: React.FC<ProfileProps> = ({ isOpen, onClose }) => {
     setEditedName(currentUser.display_name || currentUser.name);
   };
 
-  const handleSaveName = () => {
+  const handleSaveName = async () => {
     // TODO: Implement API call to update display_name
     console.log('Updating display_name to:', editedName);
-    setIsEditingName(false);
+    await fetch(buildApiUrl(`/api/users/${currentUser.id}`), {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ display_name: editedName }),
+    });
+    alert("Update thành công");
+    window.location.reload(); // Reload to reflect changes
   };
 
   const handleCancelEdit = () => {
