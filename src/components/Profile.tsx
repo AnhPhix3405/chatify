@@ -1,5 +1,5 @@
-import React from 'react';
-import { User, Calendar, LogOut, X } from 'lucide-react';
+import React, { useState } from 'react';
+import { User, Calendar, LogOut, X, Edit3, Check, X as XIcon } from 'lucide-react';
 import { useChat } from '../hooks/useChat';
 
 interface ProfileProps {
@@ -9,12 +9,30 @@ interface ProfileProps {
 
 export const Profile: React.FC<ProfileProps> = ({ isOpen, onClose }) => {
   const { currentUser, logout } = useChat();
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editedName, setEditedName] = useState('');
 
   if (!isOpen || !currentUser) return null;
 
   const handleLogout = () => {
     logout();
     onClose(); // Close the modal after logout
+  };
+
+  const handleEditName = () => {
+    setIsEditingName(true);
+    setEditedName(currentUser.display_name || currentUser.name);
+  };
+
+  const handleSaveName = () => {
+    // TODO: Implement API call to update display_name
+    console.log('Updating display_name to:', editedName);
+    setIsEditingName(false);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditingName(false);
+    setEditedName('');
   };
 
   return (
@@ -51,8 +69,40 @@ export const Profile: React.FC<ProfileProps> = ({ isOpen, onClose }) => {
             }`} />
           </div>
 
-          <h4 className="text-xl font-semibold text-gray-900 dark:text-white mb-1">
-            {currentUser.display_name || currentUser.name}
+          <h4 className="text-xl font-semibold text-gray-900 dark:text-white mb-1 flex items-center space-x-2">
+            {isEditingName ? (
+              <div className="flex items-center space-x-2">
+                <input
+                  type="text"
+                  value={editedName}
+                  onChange={(e) => setEditedName(e.target.value)}
+                  className="bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-base focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  autoFocus
+                />
+                <button
+                  onClick={handleSaveName}
+                  className="text-green-600 hover:text-green-700 transition-colors"
+                >
+                  <Check className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={handleCancelEdit}
+                  className="text-red-600 hover:text-red-700 transition-colors"
+                >
+                  <XIcon className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center space-x-2">
+                <span>{currentUser.display_name || currentUser.name}</span>
+                <button
+                  onClick={handleEditName}
+                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+                >
+                  <Edit3 className="w-4 h-4" />
+                </button>
+              </div>
+            )}
           </h4>
           <p className="text-sm text-gray-600 dark:text-gray-400 capitalize">
             {currentUser.status}
