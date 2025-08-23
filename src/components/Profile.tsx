@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Calendar, LogOut, X, Edit3, Check, X as XIcon } from 'lucide-react';
+import { User, Calendar, LogOut, X, Edit3, Check, X as XIcon, Camera } from 'lucide-react';
 import { useChat } from '../hooks/useChat';
 import { buildApiUrl } from '../config/api';
 interface ProfileProps {
@@ -11,6 +11,7 @@ export const Profile: React.FC<ProfileProps> = ({ isOpen, onClose }) => {
   const { currentUser, logout } = useChat();
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState('');
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
 
   if (!isOpen || !currentUser) return null;
 
@@ -43,6 +44,55 @@ export const Profile: React.FC<ProfileProps> = ({ isOpen, onClose }) => {
     setEditedName('');
   };
 
+  const handleAvatarUpload = async () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    
+    input.onchange = async (event) => {
+      const file = (event.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+
+      setIsUploadingAvatar(true); // Bắt đầu loading
+
+      const formData = new FormData();
+      formData.append('avatar', file);
+      
+      try {
+        const response = await fetch(buildApiUrl('/api/uploads/avatar'), {
+          method: 'POST',
+          body: formData
+        });
+        
+        const data = await response.json();
+        const imageUrl = data.url;
+        
+        console.log('Uploaded image URL:', imageUrl);
+        await updateAvatar(imageUrl);
+        alert("Cập nhật avatar thành công");
+        window.location.reload(); // Reload to reflect changes
+        return imageUrl;
+      } catch (error) {
+        console.error('Upload failed:', error);
+        alert("Lỗi khi upload avatar");
+      } finally {
+        setIsUploadingAvatar(false); // Kết thúc loading
+      }
+    };
+    
+    input.click();
+  };
+
+  const updateAvatar = async (imageUrl: string) => {
+    await fetch(buildApiUrl(`/api/users/${currentUser.id}`), {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ avatar_url: imageUrl }),
+    });
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
@@ -59,7 +109,7 @@ export const Profile: React.FC<ProfileProps> = ({ isOpen, onClose }) => {
         </div>
 
         <div className="flex flex-col items-center mb-6">
-          <div className="relative mb-4">
+          <div className="relative mb-4 group">
             {currentUser.avatar ? (
               <img
                 src={currentUser.avatar}
@@ -71,6 +121,27 @@ export const Profile: React.FC<ProfileProps> = ({ isOpen, onClose }) => {
                 <User className="w-12 h-12 text-gray-500" />
               </div>
             )}
+            
+            {/* Loading overlay */}
+            {isUploadingAvatar && (
+              <div className="absolute inset-0 bg-black bg-opacity-70 rounded-full flex items-center justify-center">
+                <div className="flex flex-col items-center space-y-2">
+                  <div className="animate-spin rounded-full h-6 w-6 border-2 border-white border-t-transparent"></div>
+                  <span className="text-white text-xs">Loading...</span>
+                </div>
+              </div>
+            )}
+            
+            {/* Upload button */}
+            {!isUploadingAvatar && (
+              <button
+                onClick={handleAvatarUpload}
+                className="absolute inset-0 bg-black bg-opacity-50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+              >
+                <Camera className="w-6 h-6 text-white" />
+              </button>
+            )}
+            
             <div className={`absolute -bottom-1 -right-1 w-6 h-6 rounded-full border-2 border-white dark:border-gray-800 ${
               currentUser.status === 'online' ? 'bg-green-500' : 
               currentUser.status === 'typing' ? 'bg-blue-500' : 'bg-gray-400'
