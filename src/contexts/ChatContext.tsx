@@ -33,38 +33,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   }, []);
 
-  // Create default AI chat
-  const createDefaultAIChat = useCallback(() => {
-    const aiUser: User = {
-      id: 'ai-assistant',
-      name: 'Chatify AI',
-      display_name: 'Chatify AI',
-      avatar: 'https://images.pexels.com/photos/8386440/pexels-photo-8386440.jpeg?auto=compress&cs=tinysrgb&w=150',
-      status: 'online'
-    };
-
-    const welcomeMessage: Message = {
-      id: 'ai-welcome-1',
-      senderId: 'ai-assistant',
-      content: 'Hello! I\'m Chatify AI, your personal assistant. How can I help you today? 🤖',
-      type: 'text',
-      timestamp: new Date(),
-      seenBy: []
-    };
-
-    const aiChat: Chat = {
-      id: 'ai-chat-default',
-      type: 'ai',
-      created_by: 'ai-assistant',
-      participants: [aiUser],
-      messages: [welcomeMessage],
-      lastMessage: welcomeMessage,
-      unreadCount: 0
-    };
-
-    return aiChat;
-  }, []);
-
   // Load user chats from API
   const loadUserChats = useCallback(async (userId: string) => {
     try {
@@ -110,18 +78,14 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           const filteredChats = filterChats(formattedChats, userId);
           
-          // Always add AI chat at the beginning
-          const aiChat = createDefaultAIChat();
-          const allChats = [aiChat, ...filteredChats];
-          
-          setChats(allChats);
-          console.log('Loaded chats with AI:', allChats);
+          setChats(filteredChats);
+          console.log('Loaded chats:', filteredChats);
         }
       }
     } catch (error) {
       console.error('Error loading user chats:', error);
     }
-  }, [filterChats, createDefaultAIChat]);
+  }, [filterChats]);
 
   // Load current user from API
   const loadCurrentUser = useCallback(async () => {
