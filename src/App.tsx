@@ -8,6 +8,7 @@ import { InfoPanel } from './components/InfoPanel';
 import { Header } from './components/Header';
 import { SearchResult } from './components/SearchResult';
 import { Profile } from './components/Profile';
+import { AIChat } from './components/AIChat';
 import { LoginPage } from './components/Auth/LoginPage';
 import { RegisterPage } from './components/Auth/RegisterPage';
 import { useChat } from './hooks/useChat';
@@ -27,6 +28,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 const AppContent = () => {
   const [showInfoPanel, setShowInfoPanel] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const [showAIChat, setShowAIChat] = useState(false);
   const { activeChat, isMobileView, searchResult, clearSearchResult, createChatWithUser } = useChat();
 
   return (
@@ -36,6 +38,7 @@ const AppContent = () => {
         onInfoToggle={() => setShowInfoPanel(!showInfoPanel)}
         showInfo={showInfoPanel}
         onProfileToggle={() => setShowProfile(!showProfile)}
+        onAIToggle={() => setShowAIChat(!showAIChat)}
       />
       
       <div className="flex flex-1 overflow-hidden">
@@ -86,6 +89,12 @@ const AppContent = () => {
       <Profile
         isOpen={showProfile}
         onClose={() => setShowProfile(false)}
+      />
+
+      {/* AI Chat Modal */}
+      <AIChat
+        isOpen={showAIChat}
+        onClose={() => setShowAIChat(false)}
       />
     </div>
   );

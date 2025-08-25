@@ -2,6 +2,7 @@ import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { Chat, Message, User, ChatContextType, ApiUser, ApiChat, ApiChatMember, ApiMessage } from '../types';
 import { API_CONFIG, buildApiUrl } from '../config/api';
 import { socketService } from '../services/socketService';
+import { aiChatService } from '../services/aiChatService';
 import { useNavigate } from 'react-router-dom';
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
@@ -475,14 +476,17 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem('user_id');
     localStorage.removeItem('user_data');
     
-    // 3. Reset all states
+    // 3. Clear AI conversations
+    aiChatService.clearAllConversations();
+    
+    // 4. Reset all states
     setCurrentUser(null);
     setChats([]);
     setActiveChat(null);
     setSearchResult(null);
     setIsLoadingUser(false);
     
-    // 4. Navigate to login using React Router
+    // 5. Navigate to login using React Router
     navigate('/login', { replace: true });
   }, [navigate]);
 

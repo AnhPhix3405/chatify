@@ -8,6 +8,7 @@ const chatRoute = require('./chatRoute');
 const messageRoute = require('./messageRoute');
 const chatMemberRoute = require('./chatMemberRoute');
 const messageStatusRoute = require('./messageStatusRoute');
+const AIRoute = require('./AIRoute');
 
 // Import controllers (for backward compatibility)
 const UserController = require('../controllers/userController');
@@ -21,6 +22,7 @@ router.use('/chats', chatRoute);
 router.use('/messages', messageRoute);
 router.use('/chat-members', chatMemberRoute);
 router.use('/message-status', messageStatusRoute);
+router.use('/ai', AIRoute);
 
 // Legacy User routes (for backward compatibility)
 router.get('/users', UserController.getAllUsers);
