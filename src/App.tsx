@@ -31,14 +31,12 @@ const AppContent = () => {
 
   return (
     <div className="h-screen bg-gray-100 dark:bg-gray-900 flex flex-col">
-      {/* Header - only show on desktop */}
-      {!isMobileView && (
-        <Header 
-          onInfoToggle={() => setShowInfoPanel(!showInfoPanel)}
-          showInfo={showInfoPanel}
-          onProfileToggle={() => setShowProfile(!showProfile)}
-        />
-      )}
+      {/* Header - show on both desktop and mobile */}
+      <Header 
+        onInfoToggle={() => setShowInfoPanel(!showInfoPanel)}
+        showInfo={showInfoPanel}
+        onProfileToggle={() => setShowProfile(!showProfile)}
+      />
       
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar - show/hide based on mobile state */}
@@ -62,8 +60,8 @@ const AppContent = () => {
         `}>
           <ChatArea />
           
-          {/* Info Panel - only show on desktop */}
-          {!isMobileView && showInfoPanel && (
+          {/* Info Panel - show on desktop and conditionally on mobile */}
+          {showInfoPanel && (
             <InfoPanel
               isOpen={showInfoPanel}
               onClose={() => setShowInfoPanel(false)}

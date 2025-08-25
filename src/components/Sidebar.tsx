@@ -188,8 +188,10 @@ export const Sidebar: React.FC = () => {
       {/* New Chat Button */}
       <div className={`p-4 border-t border-gray-200 dark:border-gray-700 ${isMobileView ? 'fixed bottom-4 right-4 p-0 border-0' : ''}`}>
         {isMobileView ? (
-          <button className="w-14 h-14 bg-blue-500 hover:bg-blue-600 text-white rounded-full shadow-lg flex items-center justify-center transition-colors duration-200">
-            <Plus className="w-6 h-6" />
+          <button className="w-14 h-14 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-full shadow-lg flex items-center justify-center transition-all duration-200">
+            <div className="flex flex-col items-center">
+              <span className="text-white font-bold text-xs">CA</span>
+            </div>
           </button>
         ) : (
           <button className="w-full flex items-center justify-center space-x-2 bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg transition-colors duration-200">
