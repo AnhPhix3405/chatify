@@ -1,3 +1,4 @@
+import {API_CONFIG} from '../config/api';
 export interface AIMessage {
   id: string;
   content: string;
@@ -94,7 +95,7 @@ class AIChatService {
   // Gọi Gemini API
   private async callGeminiAPI(message: string): Promise<string> {
     try {
-      const response = await fetch('http://localhost:3001/api/gemini', {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/gemini`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
