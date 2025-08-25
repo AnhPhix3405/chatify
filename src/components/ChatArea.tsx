@@ -87,8 +87,10 @@ const MessageBubble: React.FC<{
 
 const MessageInput: React.FC = () => {
   const [message, setMessage] = useState('');
-  const { sendMessage, isMobileView } = useChat();
+  const { sendMessage, isMobileView, activeChat } = useChat();
   const inputRef = useRef<HTMLInputElement>(null);
+  
+  const isAIChat = activeChat?.type === 'ai' || activeChat?.id === 'ai-chat-default';
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -106,22 +108,31 @@ const MessageInput: React.FC = () => {
     }
   };
 
+  const placeholder = isAIChat 
+    ? "Ask Chatify AI anything..." 
+    : "Type a message...";
+
   return (
     <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4">
       <div className="flex items-center space-x-3">
-        <button
-          type="button"
-          className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors duration-200"
-        >
-          <Paperclip className="w-5 h-5" />
-        </button>
-        
-        <button
-          type="button"
-          className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors duration-200"
-        >
-          <Image className="w-5 h-5" />
-        </button>
+        {/* Hide attachment buttons for AI chat */}
+        {!isAIChat && (
+          <>
+            <button
+              type="button"
+              className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors duration-200"
+            >
+              <Paperclip className="w-5 h-5" />
+            </button>
+            
+            <button
+              type="button"
+              className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors duration-200"
+            >
+              <Image className="w-5 h-5" />
+            </button>
+          </>
+        )}
 
         <div className="flex-1 relative">
           <input
@@ -130,12 +141,13 @@ const MessageInput: React.FC = () => {
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder="Type a message..."
+            placeholder={placeholder}
             className={`
               w-full bg-gray-100 dark:bg-gray-700 border-0 rounded-full pr-12 text-sm 
               text-gray-900 dark:text-white placeholder-gray-500 
               focus:ring-2 focus:ring-blue-500 transition-all duration-200
               ${isMobileView ? 'py-3 px-4' : 'py-3 px-4'}
+              ${isAIChat ? 'focus:ring-purple-500' : 'focus:ring-blue-500'}
             `}
           />
           <button
@@ -151,7 +163,9 @@ const MessageInput: React.FC = () => {
           disabled={!message.trim()}
           className={`rounded-full transition-all duration-200 ${
             message.trim()
-              ? 'bg-blue-500 hover:bg-blue-600 text-white shadow-md hover:shadow-lg'
+              ? isAIChat 
+                ? 'bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-md hover:shadow-lg'
+                : 'bg-blue-500 hover:bg-blue-600 text-white shadow-md hover:shadow-lg'
               : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500'
           } ${isMobileView ? 'p-3' : 'p-3'}`}
         >
@@ -191,7 +205,8 @@ export const ChatArea: React.FC = () => {
   }
 
   // Thêm kiểu cho các tham số
-  const otherParticipant = activeChat.participants.find((p: User) => p.id !== currentUser.id);
+  const otherParticipant = activeChat.participants.find((p: User) => p.id !== currentUser?.id);
+  const isAIChat = activeChat.type === 'ai' || activeChat.id === 'ai-chat-default';
 
   return (
     <div className="flex-1 flex flex-col bg-white dark:bg-gray-900 h-full">
@@ -209,30 +224,55 @@ export const ChatArea: React.FC = () => {
               </button>
             )}
             
-            <img
-              src={otherParticipant?.avatar}
-              alt={otherParticipant?.display_name || otherParticipant?.name}
-              className="w-10 h-10 rounded-full"
-            />
-            <div>
-              <h2 className="font-semibold text-gray-900 dark:text-white">
-                {otherParticipant?.display_name || otherParticipant?.name}
-              </h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                {otherParticipant?.status === 'online' ? 'Online' : 
-                 otherParticipant?.status === 'typing' ? 'Typing...' : 
-                 otherParticipant?.lastSeen || 'Offline'}
-              </p>
-            </div>
+            {/* AI Chat Special Header */}
+            {isAIChat ? (
+              <>
+                <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                  <span className="text-white font-bold text-sm">CA</span>
+                </div>
+                <div>
+                  <h2 className="font-semibold text-gray-900 dark:text-white flex items-center space-x-2">
+                    <span>Chatify AI</span>
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  </h2>
+                  <p className="text-sm text-blue-500 dark:text-blue-400">
+                    AI Assistant • Always Online
+                  </p>
+                </div>
+              </>
+            ) : (
+              <>
+                <img
+                  src={otherParticipant?.avatar}
+                  alt={otherParticipant?.display_name || otherParticipant?.name}
+                  className="w-10 h-10 rounded-full"
+                />
+                <div>
+                  <h2 className="font-semibold text-gray-900 dark:text-white">
+                    {otherParticipant?.display_name || otherParticipant?.name}
+                  </h2>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {otherParticipant?.status === 'online' ? 'Online' : 
+                     otherParticipant?.status === 'typing' ? 'Typing...' : 
+                     otherParticipant?.lastSeen || 'Offline'}
+                  </p>
+                </div>
+              </>
+            )}
           </div>
           
           <div className="flex items-center space-x-1">
-            <button className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors duration-200">
-              <Phone className="w-5 h-5" />
-            </button>
-            <button className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors duration-200">
-              <Video className="w-5 h-5" />
-            </button>
+            {/* Hide call buttons for AI chat */}
+            {!isAIChat && (
+              <>
+                <button className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors duration-200">
+                  <Phone className="w-5 h-5" />
+                </button>
+                <button className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors duration-200">
+                  <Video className="w-5 h-5" />
+                </button>
+              </>
+            )}
             <button className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors duration-200">
               <MoreVertical className="w-5 h-5" />
             </button>

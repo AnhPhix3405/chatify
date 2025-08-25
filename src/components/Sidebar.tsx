@@ -24,10 +24,24 @@ const ChatItem: React.FC<{
 }> = ({ chat, isActive, onClick }) => {
   const { currentUser } = useChat();
   
-  // Find the other participant (not the current user)
-  const otherParticipant = chat.participants.find((p: User) => p.id !== currentUser?.id);
-  console.log('Debug otherParticipant:', otherParticipant);
-  if (!otherParticipant) return null;
+  const isAIChat = chat.type === 'ai' || chat.id === 'ai-chat-default';
+  
+  // For AI chat, use AI user; for normal chat, find the other participant
+  let displayUser: User | undefined;
+  let displayName: string;
+  let displayAvatar: string;
+  
+  if (isAIChat) {
+    displayName = 'Chatify AI';
+    displayAvatar = ''; // Will be handled by gradient
+    displayUser = undefined; // AI doesn't need user object
+  } else {
+    const otherParticipant = chat.participants.find((p: User) => p.id !== currentUser?.id);
+    if (!otherParticipant) return null;
+    displayUser = otherParticipant;
+    displayName = otherParticipant.display_name || otherParticipant.name;
+    displayAvatar = otherParticipant.avatar;
+  }
 
   const lastMessage = chat.lastMessage || (chat.messages.length > 0 ? chat.messages[chat.messages.length - 1] : null);
   const formatTime = (date: Date) => {
@@ -47,21 +61,34 @@ const ChatItem: React.FC<{
       onClick={onClick}
       className={`flex items-center p-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors duration-200 ${
         isActive ? 'bg-blue-50 dark:bg-blue-900/30 border-r-2 border-blue-500' : ''
-      }`}
+      } ${isAIChat ? 'border-l-4 border-l-purple-500' : ''}`}
     >
       <div className="relative">
-        <img
-          src={otherParticipant.avatar}
-          alt={otherParticipant.display_name || otherParticipant.name}
-          className="w-12 h-12 rounded-full object-cover"
-        />
-        <StatusIndicator user={otherParticipant} />
+        {isAIChat ? (
+          <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+            <span className="text-white font-bold text-sm">CA</span>
+          </div>
+        ) : (
+          <img
+            src={displayAvatar}
+            alt={displayName}
+            className="w-12 h-12 rounded-full object-cover"
+          />
+        )}
+        {isAIChat ? (
+          <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white dark:border-gray-800 animate-pulse" />
+        ) : (
+          displayUser && <StatusIndicator user={displayUser} />
+        )}
       </div>
       
       <div className="ml-3 flex-1 min-w-0">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-gray-900 dark:text-white truncate">
-            {otherParticipant.display_name || otherParticipant.name}
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-white truncate flex items-center space-x-1">
+            <span>{displayName}</span>
+            {isAIChat && (
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+            )}
           </h3>
           {lastMessage && (
             <span className="text-xs text-gray-500 dark:text-gray-400">
@@ -72,7 +99,9 @@ const ChatItem: React.FC<{
         
         <div className="flex items-center justify-between mt-1">
           <div className="text-sm text-gray-600 dark:text-gray-300 truncate">
-            {otherParticipant.status === 'typing' ? (
+            {isAIChat ? (
+              <span className="text-blue-500 italic">AI Assistant</span>
+            ) : displayUser?.status === 'typing' ? (
               <span className="flex items-center text-blue-500">
                 <div className="flex space-x-1 mr-2">
                   <div className="w-1 h-1 bg-blue-500 rounded-full animate-bounce"></div>
