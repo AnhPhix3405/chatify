@@ -7,13 +7,6 @@ A feature-rich, modern chat application built with React, TypeScript, Node.js, a
 - **Frontend:** [https://chatify-neon-five.vercel.app/](https://chatify-neon-five.vercel.app/)
 - **Backend API:** [https://chatify-api-2g1a.onrender.com/](https://chatify-api-2g1a.onrender.com/)
 
-## 🚀 Getting Started
-
-### Prerequisites
-- Node.js (v18 or higher)
-- PostgreSQL database
-- Google Gemini API key
-
 ## 🤝 Contributing
 
 1. Fork the repository
