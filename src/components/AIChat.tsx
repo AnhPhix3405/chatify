@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { aiChatService, AIConversation, AIMessage } from '../services/aiChatService';
+import { Menu, X,Plus, Trash2, Send } from 'lucide-react';
 
 interface AIChatProps {
   isOpen: boolean;
@@ -11,6 +12,8 @@ export const AIChat: React.FC<AIChatProps> = ({ isOpen, onClose }) => {
   const [conversations, setConversations] = useState<AIConversation[]>([]);
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showSidebar, setShowSidebar] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -18,6 +21,21 @@ export const AIChat: React.FC<AIChatProps> = ({ isOpen, onClose }) => {
     const newConv = aiChatService.createConversation();
     setCurrentConversation(newConv);
     setConversations(prev => [...prev, newConv]);
+    // Đóng sidebar trên mobile sau khi tạo conversation mới
+    if (isMobile) {
+      setShowSidebar(false);
+    }
+  }, [isMobile]);
+
+  // Detect mobile screen size
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
   // Load conversations khi component mount
@@ -100,9 +118,12 @@ export const AIChat: React.FC<AIChatProps> = ({ isOpen, onClose }) => {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-4xl h-[80vh] flex overflow-hidden">
-        {/* Sidebar - Danh sách conversations */}
-        <div className="w-80 border-r dark:border-gray-700 flex flex-col">
+      <div className={`bg-white dark:bg-gray-800 w-full h-full ${isMobile ? '' : 'rounded-lg max-w-4xl h-[80vh]'} flex overflow-hidden`}>
+        {/* Sidebar - Desktop luôn hiển thị, Mobile chỉ hiện khi showSidebar = true */}
+        <div className={`${isMobile ? 
+          `fixed inset-y-0 left-0 z-40 w-80 transform transition-transform duration-300 ease-in-out ${showSidebar ? 'translate-x-0' : '-translate-x-full'}` : 
+          'w-80'
+        } bg-white dark:bg-gray-800 border-r dark:border-gray-700 flex flex-col`}>
           <div className="p-4 border-b dark:border-gray-700">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -113,7 +134,7 @@ export const AIChat: React.FC<AIChatProps> = ({ isOpen, onClose }) => {
                 className="p-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition-colors"
                 title="Cuộc trò chuyện mới"
               >
-                ➕
+                <Plus className="w-4 h-4" />
               </button>
             </div>
           </div>
@@ -125,7 +146,10 @@ export const AIChat: React.FC<AIChatProps> = ({ isOpen, onClose }) => {
                 className={`p-3 border-b dark:border-gray-700 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
                   currentConversation?.id === conv.id ? 'bg-blue-50 dark:bg-blue-900' : ''
                 }`}
-                onClick={() => setCurrentConversation(conv)}
+                onClick={() => {
+                  setCurrentConversation(conv);
+                  if (isMobile) setShowSidebar(false);
+                }}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
@@ -147,7 +171,7 @@ export const AIChat: React.FC<AIChatProps> = ({ isOpen, onClose }) => {
                     className="p-1 text-red-500 hover:bg-red-100 dark:hover:bg-red-900 rounded"
                     title="Xóa cuộc trò chuyện"
                   >
-                    🗑️
+                    <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
               </div>
@@ -155,33 +179,65 @@ export const AIChat: React.FC<AIChatProps> = ({ isOpen, onClose }) => {
           </div>
         </div>
 
+        {/* Overlay để đóng sidebar trên mobile */}
+        {isMobile && showSidebar && (
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-50 z-30"
+            onClick={() => setShowSidebar(false)}
+          />
+        )}
+
         {/* Main Chat Area */}
         <div className="flex-1 flex flex-col">
-          {/* Header */}
-          <div className="p-4 border-b dark:border-gray-700 flex items-center justify-between">
-            <div>
-              <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Chatify AI Assistant
-              </h4>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Hỏi tôi bất cứ điều gì!
-              </p>
-            </div>
-            <button
-              onClick={onClose}
-              className="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-            >
-              ✕
-            </button>
+          {/* Header - Mobile sticky, Desktop normal */}
+          <div className={`${isMobile ? 'bg-blue-500 text-white' : 'bg-white dark:bg-gray-800'} ${isMobile ? 'h-14' : ''} border-b dark:border-gray-700 flex items-center justify-between px-4 py-3`}>
+            {isMobile ? (
+              <>
+                <button
+                  onClick={() => setShowSidebar(true)}
+                  className="p-2 text-white hover:bg-blue-600 rounded-lg transition-colors"
+                >
+                  <Menu className="w-5 h-5" />
+                </button>
+                <h4 className="text-lg font-semibold text-center flex-1">
+                  Chatify AI
+                </h4>
+                <button
+                  onClick={onClose}
+                  className="p-2 text-white hover:bg-blue-600 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </>
+            ) : (
+              <>
+                <div>
+                  <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    Chatify AI Assistant
+                  </h4>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Hỏi tôi bất cứ điều gì!
+                  </p>
+                </div>
+                <button
+                  onClick={onClose}
+                  className="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </>
+            )}
           </div>
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <div className={`flex-1 overflow-y-auto p-4 space-y-4 ${isMobile ? 'pb-20' : ''}`}>
             {currentConversation?.messages.length === 0 ? (
               <div className="text-center text-gray-500 dark:text-gray-400 mt-8">
                 <div className="text-6xl mb-4">🤖</div>
                 <h3 className="text-xl font-semibold mb-2">Chào bạn!</h3>
-                <p>Tôi là AI Assistant của Chatify. Hãy hỏi tôi bất cứ điều gì bạn muốn!</p>
+                <p className={`${isMobile ? 'text-sm px-4' : ''}`}>
+                  Tôi là AI Assistant của Chatify. Hãy hỏi tôi bất cứ điều gì bạn muốn!
+                </p>
               </div>
             ) : (
               currentConversation?.messages.map((msg: AIMessage) => (
@@ -190,13 +246,15 @@ export const AIChat: React.FC<AIChatProps> = ({ isOpen, onClose }) => {
                   className={`flex ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
                   <div
-                    className={`max-w-[70%] p-3 rounded-lg ${
+                    className={`${isMobile ? 'max-w-[85%]' : 'max-w-[70%]'} p-3 rounded-lg ${
                       msg.type === 'user'
-                        ? 'bg-blue-500 text-white'
-                        : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white'
+                        ? 'bg-blue-500 text-white rounded-br-sm'
+                        : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-bl-sm'
                     }`}
                   >
-                    <div className="whitespace-pre-wrap">{msg.content}</div>
+                    <div className={`whitespace-pre-wrap ${isMobile ? 'text-sm' : ''}`}>
+                      {msg.content}
+                    </div>
                     <div
                       className={`text-xs mt-1 opacity-70 ${
                         msg.type === 'user' ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'
@@ -211,7 +269,7 @@ export const AIChat: React.FC<AIChatProps> = ({ isOpen, onClose }) => {
             
             {isLoading && (
               <div className="flex justify-start">
-                <div className="bg-gray-200 dark:bg-gray-700 p-3 rounded-lg">
+                <div className="bg-gray-200 dark:bg-gray-700 p-3 rounded-lg rounded-bl-sm">
                   <div className="flex items-center space-x-1">
                     <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"></div>
                     <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
@@ -224,9 +282,9 @@ export const AIChat: React.FC<AIChatProps> = ({ isOpen, onClose }) => {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Input */}
-          <div className="p-4 border-t dark:border-gray-700">
-            <div className="flex space-x-2">
+          {/* Input - Mobile fixed bottom, Desktop normal */}
+          <div className={`${isMobile ? 'fixed bottom-0 left-0 right-0' : ''} p-4 border-t dark:border-gray-700 bg-white dark:bg-gray-800`}>
+            <div className="flex space-x-2 max-w-4xl mx-auto">
               <input
                 ref={inputRef}
                 type="text"
@@ -234,15 +292,19 @@ export const AIChat: React.FC<AIChatProps> = ({ isOpen, onClose }) => {
                 onChange={(e) => setMessage(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="Nhập tin nhắn của bạn..."
-                className="flex-1 p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={`flex-1 p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 ${isMobile ? 'text-sm' : ''}`}
                 disabled={isLoading}
               />
               <button
                 onClick={handleSendMessage}
                 disabled={!message.trim() || isLoading}
-                className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                className={`${isMobile ? 'px-4 py-3' : 'px-6 py-3'} bg-blue-500 text-white rounded-xl hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center`}
               >
-                {isLoading ? '⏳' : '📤'}
+                {isLoading ? (
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                  <Send className="w-5 h-5" />
+                )}
               </button>
             </div>
           </div>
