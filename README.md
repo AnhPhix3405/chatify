@@ -9,7 +9,8 @@ A feature-rich, modern chat application built with React, TypeScript, Node.js, a
 
 ## 📸 Screenshots
 
-<img width="624" height="906" alt="image" src="https://github.com/user-attachments/assets/a4b5b911-6ef0-462b-9e4b-29174d6c5fe3" />
+![912e5d6e-862e-4f6c-b13f-c1c0998873b1](https://github.com/user-attachments/assets/83c6c5d4-569d-40a8-a604-8f243a659c41)
+
 
 ## 🚀 Getting Started
 
