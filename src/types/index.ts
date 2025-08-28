@@ -98,12 +98,13 @@ export interface ChatContextType {
   loadChatMessages: (chatId: string) => Promise<void>;
   logout: () => void;
   // Call related properties
-  initiateCall: (targetUserId: string, chatId: string) => void;
+  initiateCall: (targetUserId: string, chatId: string, callType?: 'voice' | 'video') => void;
   acceptCall: (callId: string) => void;
   rejectCall: (callId: string) => void;
   endCall: () => void;
   incomingCall: CallData | null;
   activeCall: CallData | null;
+  outgoingCall: CallData | null;
   callStatus: 'idle' | 'calling' | 'ringing' | 'connected';
 }
 

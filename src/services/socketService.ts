@@ -153,7 +153,10 @@ class SocketService {
   acceptCall(callId: string): void {
     if (this.socket && this.isConnected) {
       console.log('Accepting call:', callId);
-      this.socket.emit('call:accept', { callId });
+      this.socket.emit('call:accept', { 
+        callId,
+        acceptedBy: this.socket.id || 'unknown'
+      });
     } else {
       console.warn('WebSocket not connected, cannot accept call');
     }
@@ -163,7 +166,10 @@ class SocketService {
   rejectCall(callId: string): void {
     if (this.socket && this.isConnected) {
       console.log('Rejecting call:', callId);
-      this.socket.emit('call:reject', { callId });
+      this.socket.emit('call:reject', { 
+        callId,
+        rejectedBy: this.socket.id || 'unknown'
+      });
     } else {
       console.warn('WebSocket not connected, cannot reject call');
     }

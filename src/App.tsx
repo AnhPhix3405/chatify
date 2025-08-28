@@ -13,6 +13,7 @@ import { LoginPage } from './components/Auth/LoginPage';
 import { RegisterPage } from './components/Auth/RegisterPage';
 import { IncomingCallModal } from './components/Call/IncomingCallModal';
 import { ActiveCallModal } from './components/Call/ActiveCallModal';
+import { OutgoingCallModal } from './components/Call/OutgoingCallModal';
 import { useChat } from './hooks/useChat';
 
 // Protected Route component
@@ -39,6 +40,7 @@ const AppContent = () => {
     createChatWithUser,
     incomingCall,
     activeCall,
+    outgoingCall,
     acceptCall,
     rejectCall,
     endCall
@@ -116,6 +118,13 @@ const AppContent = () => {
           call={incomingCall}
           onAccept={() => acceptCall(incomingCall.callId)}
           onReject={() => rejectCall(incomingCall.callId)}
+        />
+      )}
+
+      {outgoingCall && (
+        <OutgoingCallModal
+          call={outgoingCall}
+          onCancel={() => endCall()}
         />
       )}
 

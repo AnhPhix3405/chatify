@@ -17,6 +17,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Call states
   const [incomingCall, setIncomingCall] = useState<CallData | null>(null);
   const [activeCall, setActiveCall] = useState<CallData | null>(null);
+  const [outgoingCall, setOutgoingCall] = useState<CallData | null>(null);
   const [callStatus, setCallStatus] = useState<'idle' | 'calling' | 'ringing' | 'connected'>('idle');
   
   const navigate = useNavigate();
@@ -174,10 +175,27 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
 
         socketService.onCallAccepted((data) => {
-          console.log('Call accepted:', data);
+          console.log('Call accepted event received:', data);
+          
           setCallStatus('connected');
           setIncomingCall(null);
-          setActiveCall(prev => prev ? { ...prev, status: 'connected', isInitiator: true } : null);
+          
+          // Check if we have an outgoing call to convert to active
+          setOutgoingCall((currentOutgoing) => {
+            if (currentOutgoing) {
+              console.log('Converting outgoing call to active call:', currentOutgoing);
+              // Set active call from outgoing call
+              setActiveCall({
+                ...currentOutgoing,
+                status: 'connected'
+              });
+              // Clear outgoing call
+              return null;
+            } else {
+              console.log('No outgoing call found, this might be the receiver side');
+            }
+            return currentOutgoing;
+          });
         });
 
         socketService.onCallRejected((data) => {
@@ -185,6 +203,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setCallStatus('idle');
           setActiveCall(null);
           setIncomingCall(null);
+          setOutgoingCall(null); // Clear outgoing call when rejected
         });
 
         socketService.onCallEnded((data) => {
@@ -192,6 +211,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setCallStatus('idle');
           setActiveCall(null);
           setIncomingCall(null);
+          setOutgoingCall(null);
         });
 
         socketService.onCallTimeout((data) => {
@@ -199,6 +219,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setCallStatus('idle');
           setActiveCall(null);
           setIncomingCall(null);
+          setOutgoingCall(null);
         });
 
         socketService.onCallFailed((data) => {
@@ -478,9 +499,24 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [loadUserChats]);
 
   // Call functions
-  const initiateCall = useCallback((targetUserId: string, chatId: string) => {
+  const initiateCall = useCallback((targetUserId: string, chatId: string, callType: 'voice' | 'video' = 'voice') => {
     if (!currentUser) return;
     console.log('Initiating call to:', targetUserId);
+    
+    // Generate unique call ID
+    const callId = `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Set outgoing call state for caller
+    setOutgoingCall({
+      callId,
+      callerId: currentUser.id,
+      targetUserId,
+      chatId,
+      type: callType,
+      status: 'calling',
+      isInitiator: true
+    });
+    
     setCallStatus('calling');
     socketService.initiateCall(targetUserId, chatId);
   }, [currentUser]);
@@ -488,21 +524,29 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const acceptCall = useCallback((callId: string) => {
     console.log('Accepting call:', callId);
     setCallStatus('connected');
-    // Update the existing incomingCall to activeCall
-    setActiveCall(prev => {
-      if (incomingCall) {
-        return { ...incomingCall, status: 'connected', isInitiator: false };
+    
+    // Convert incoming call to active call for receiver
+    setIncomingCall((currentIncoming) => {
+      if (currentIncoming) {
+        console.log('Converting incoming call to active call for receiver:', currentIncoming);
+        setActiveCall({
+          ...currentIncoming,
+          status: 'connected',
+          isInitiator: false
+        });
       }
-      return prev;
+      return null; // Clear incoming call
     });
-    setIncomingCall(null);
+    
+    // Emit accept event to server
     socketService.acceptCall(callId);
-  }, [incomingCall]);
+  }, []);
 
   const rejectCall = useCallback((callId: string) => {
     console.log('Rejecting call:', callId);
     setCallStatus('idle');
     setIncomingCall(null);
+    setOutgoingCall(null);
     socketService.rejectCall(callId);
   }, []);
 
@@ -512,8 +556,13 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setCallStatus('idle');
       setActiveCall(null);
       socketService.endCall(activeCall.callId);
+    } else if (outgoingCall) {
+      console.log('Canceling outgoing call:', outgoingCall.callId);
+      setCallStatus('idle');
+      setOutgoingCall(null);
+      socketService.rejectCall(outgoingCall.callId);
     }
-  }, [activeCall]);
+  }, [activeCall, outgoingCall]);
 
   // Load chat messages
   const loadChatMessages = useCallback(async (chatId: string) => {
@@ -604,6 +653,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Call states and functions
     incomingCall,
     activeCall,
+    outgoingCall,
     callStatus,
     initiateCall,
     acceptCall,

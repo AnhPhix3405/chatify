@@ -202,15 +202,13 @@ export const ChatArea: React.FC = () => {
 
   const handlePhoneCall = () => {
     if (otherParticipant && activeChat) {
-      initiateCall(otherParticipant.id, activeChat.id);
+      initiateCall(otherParticipant.id, activeChat.id, 'voice');
     }
   };
 
   const handleVideoCall = () => {
     if (otherParticipant && activeChat) {
-      // For now, use the same initiateCall function
-      // In the future, you might want to add a second parameter for call type
-      initiateCall(otherParticipant.id, activeChat.id);
+      initiateCall(otherParticipant.id, activeChat.id, 'video');
     }
   };
 
