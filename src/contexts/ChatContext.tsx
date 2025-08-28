@@ -1,5 +1,5 @@
 import React, { createContext, useState, useEffect, useCallback } from 'react';
-import { Chat, Message, User, ChatContextType, ApiUser, ApiChat, ApiChatMember, ApiMessage, CallData } from '../types';
+import { Chat, Message, User, ChatContextType, ApiUser, ApiChat, ApiChatMember, ApiMessage, CallData, CallIncomingData, CallAcceptedData } from '../types';
 import { API_CONFIG, buildApiUrl } from '../config/api';
 import { socketService } from '../services/socketService';
 import { aiChatService } from '../services/aiChatService';
@@ -161,8 +161,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
 
         // Setup call event listeners
-        socketService.onIncomingCall((data) => {
-          console.log('Incoming call:', data);
+        socketService.onIncomingCall((data: CallIncomingData) => {
+          console.log('Incoming call received:', data);
           setIncomingCall({
             callId: data.callId,
             callerId: data.callerId,
@@ -174,27 +174,49 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setCallStatus('ringing');
         });
 
-        socketService.onCallAccepted((data) => {
+        socketService.onCallAccepted((data: CallAcceptedData) => {
           console.log('Call accepted event received:', data);
-          
-          setCallStatus('connected');
-          setIncomingCall(null);
-          
-          // Check if we have an outgoing call to convert to active
+
+          // Use functional update to get current state
           setOutgoingCall((currentOutgoing) => {
-            if (currentOutgoing) {
-              console.log('Converting outgoing call to active call:', currentOutgoing);
-              // Set active call from outgoing call
-              setActiveCall({
+            console.log('Current outgoing call in setter:', currentOutgoing);
+
+            // Prevent duplicate handling
+            if (!currentOutgoing) {
+              console.warn('Outgoing call already cleared or not set.');
+              return null;
+            }
+
+            console.log('Checking match:', {
+              hasOutgoing: !!currentOutgoing,
+              targetMatch: currentOutgoing.targetUserId === data.acceptedBy,
+              callerMatch: currentOutgoing.callerId === currentUser.id,
+              acceptedBy: data.acceptedBy,
+              currentUserId: currentUser.id,
+            });
+
+            if (
+              currentOutgoing &&
+              currentOutgoing.targetUserId === data.acceptedBy &&
+              currentOutgoing.callerId === currentUser.id
+            ) {
+              console.log('✅ Match found! Converting to active call');
+
+              // Create active call with the accepted call ID from server
+              const activeCallData: CallData = {
                 ...currentOutgoing,
-                status: 'connected'
-              });
-              // Clear outgoing call
+                callId: data.callId, // Use server's call ID
+                status: 'connected',
+              };
+
+              setActiveCall(activeCallData);
+
+              // Clear outgoing call only once
               return null;
             } else {
-              console.log('No outgoing call found, this might be the receiver side');
+              console.log('❌ No match found for call accepted');
+              return currentOutgoing;
             }
-            return currentOutgoing;
           });
         });
 
@@ -239,6 +261,22 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser]);
+
+  // Debug outgoingCall changes
+  useEffect(() => {
+    console.log('🔍 OutgoingCall changed:', outgoingCall);
+    if (outgoingCall) {
+      console.log('📞 OutgoingCall set with details:', {
+        callId: outgoingCall.callId,
+        callerId: outgoingCall.callerId,
+        targetUserId: outgoingCall.targetUserId,
+        status: outgoingCall.status,
+      });
+    } else {
+      console.log('❌ OutgoingCall cleared');
+      console.trace('Stack trace for outgoingCall clear');
+    }
+  }, [outgoingCall]);
 
   // Handle new message from WebSocket
   const handleNewMessage = useCallback((data: { message: { id: number; sender_id: number; content: string; message_type: string; sent_at: string }; chatId: string }) => {
@@ -506,16 +544,20 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Generate unique call ID
     const callId = `call_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
-    // Set outgoing call state for caller
-    setOutgoingCall({
+    const outgoingCallData = {
       callId,
       callerId: currentUser.id,
       targetUserId,
       chatId,
       type: callType,
-      status: 'calling',
+      status: 'calling' as const,
       isInitiator: true
-    });
+    };
+    
+    console.log('Setting outgoing call:', outgoingCallData);
+    
+    // Set outgoing call state for caller
+    setOutgoingCall(outgoingCallData);
     
     setCallStatus('calling');
     socketService.initiateCall(targetUserId, chatId);
