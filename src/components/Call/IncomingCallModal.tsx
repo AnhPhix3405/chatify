@@ -20,6 +20,7 @@ export const IncomingCallModal: React.FC<IncomingCallModalProps> = ({
 
   const handleAccept = async () => {
     try {
+      console.log('Accepting call and starting WebRTC for call:', call.callId);
       await answerCall(call.callId, call.type === 'video');
       onAccept();
     } catch (error) {

@@ -162,9 +162,18 @@ export const ActiveCallModal: React.FC<ActiveCallModalProps> = ({
           </div>
         )}
 
-        {/* Hidden audio elements */}
-        <audio ref={localAudioRef} autoPlay muted />
-        <audio ref={remoteAudioRef} autoPlay />
+        {/* Hidden audio elements for voice calls */}
+        <audio 
+          ref={localAudioRef} 
+          autoPlay 
+          muted 
+          style={{ display: 'none' }}
+        />
+        <audio 
+          ref={remoteAudioRef} 
+          autoPlay 
+          style={{ display: 'none' }}
+        />
 
         {/* Controls */}
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent p-6">

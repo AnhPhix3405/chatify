@@ -14,6 +14,7 @@ import { RegisterPage } from './components/Auth/RegisterPage';
 import { IncomingCallModal } from './components/Call/IncomingCallModal';
 import { ActiveCallModal } from './components/Call/ActiveCallModal';
 import { OutgoingCallModal } from './components/Call/OutgoingCallModal';
+import { CallManager } from './components/CallManager';
 import { useChat } from './hooks/useChat';
 
 // Protected Route component
@@ -111,6 +112,9 @@ const AppContent = () => {
         isOpen={showAIChat}
         onClose={() => setShowAIChat(false)}
       />
+
+      {/* Call Manager - handles WebRTC setup */}
+      <CallManager />
 
       {/* Call Modals */}
       {incomingCall && (

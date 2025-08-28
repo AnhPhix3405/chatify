@@ -50,6 +50,7 @@ export class WebRTCService {
 
     // Handle remote stream
     pc.ontrack = (event) => {
+      console.log('Received remote track:', event);
       this.remoteStream = event.streams[0];
       if (this.onRemoteStreamCallback) {
         this.onRemoteStreamCallback(this.remoteStream);
@@ -80,6 +81,8 @@ export class WebRTCService {
         audio: true,
         video: isVideoCall
       });
+
+      console.log('Got local stream for caller:', this.localStream);
 
       if (this.onLocalStreamCallback) {
         this.onLocalStreamCallback(this.localStream);
@@ -122,6 +125,8 @@ export class WebRTCService {
         audio: true,
         video: isVideoCall
       });
+
+      console.log('Got local stream for receiver:', this.localStream);
 
       if (this.onLocalStreamCallback) {
         this.onLocalStreamCallback(this.localStream);

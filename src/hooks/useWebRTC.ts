@@ -57,6 +57,10 @@ export const useWebRTC = (): UseWebRTCReturn => {
       }
       if (remoteAudioRef.current) {
         remoteAudioRef.current.srcObject = stream;
+        // Auto play remote audio
+        remoteAudioRef.current.play().catch((error) => {
+          console.error('Failed to play remote audio:', error);
+        });
       }
     });
 
@@ -93,6 +97,33 @@ export const useWebRTC = (): UseWebRTCReturn => {
     };
   }, []);
 
+  // Re-assign streams when refs change or streams update
+  useEffect(() => {
+    if (localStream) {
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = localStream;
+      }
+      if (localAudioRef.current) {
+        localAudioRef.current.srcObject = localStream;
+        localAudioRef.current.muted = true;
+      }
+    }
+  }, [localStream, localVideoRef, localAudioRef]);
+
+  useEffect(() => {
+    if (remoteStream) {
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject = remoteStream;
+      }
+      if (remoteAudioRef.current) {
+        remoteAudioRef.current.srcObject = remoteStream;
+        remoteAudioRef.current.play().catch((error) => {
+          console.error('Failed to play remote audio:', error);
+        });
+      }
+    }
+  }, [remoteStream, remoteVideoRef, remoteAudioRef]);
+
   // Update call active state based on call status
   useEffect(() => {
     setIsCallActive(callStatus === 'connected');
@@ -101,6 +132,7 @@ export const useWebRTC = (): UseWebRTCReturn => {
   const startCall = useCallback(async (_targetUserId: string, _chatId: string, isVideo: boolean = false) => {
     try {
       if (activeCall) {
+        console.log('Starting WebRTC for outgoing call:', activeCall.callId);
         await webRTCService.startCall(activeCall.callId, isVideo);
         setIsCallActive(true);
         setIsVideoEnabled(isVideo);
