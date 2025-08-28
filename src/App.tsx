@@ -11,6 +11,8 @@ import { Profile } from './components/Profile';
 import { AIChat } from './components/AIChat';
 import { LoginPage } from './components/Auth/LoginPage';
 import { RegisterPage } from './components/Auth/RegisterPage';
+import { IncomingCallModal } from './components/Call/IncomingCallModal';
+import { ActiveCallModal } from './components/Call/ActiveCallModal';
 import { useChat } from './hooks/useChat';
 
 // Protected Route component
@@ -29,7 +31,18 @@ const AppContent = () => {
   const [showInfoPanel, setShowInfoPanel] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showAIChat, setShowAIChat] = useState(false);
-  const { activeChat, isMobileView, searchResult, clearSearchResult, createChatWithUser } = useChat();
+  const { 
+    activeChat, 
+    isMobileView, 
+    searchResult, 
+    clearSearchResult, 
+    createChatWithUser,
+    incomingCall,
+    activeCall,
+    acceptCall,
+    rejectCall,
+    endCall
+  } = useChat();
 
   return (
     <div className="h-screen bg-gray-100 dark:bg-gray-900 flex flex-col">
@@ -96,6 +109,22 @@ const AppContent = () => {
         isOpen={showAIChat}
         onClose={() => setShowAIChat(false)}
       />
+
+      {/* Call Modals */}
+      {incomingCall && (
+        <IncomingCallModal
+          call={incomingCall}
+          onAccept={() => acceptCall(incomingCall.callId)}
+          onReject={() => rejectCall(incomingCall.callId)}
+        />
+      )}
+
+      {activeCall && (
+        <ActiveCallModal
+          call={activeCall}
+          onEnd={() => endCall()}
+        />
+      )}
     </div>
   );
 };

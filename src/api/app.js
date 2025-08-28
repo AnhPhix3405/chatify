@@ -24,6 +24,12 @@ class ChatifyAPI {
       }
     });
     this.port = process.env.PORT || 10000; // Render uses port 10000
+    
+    // Call management state
+    this.activeCalls = new Map(); // Track active calls: callId -> { callerId, calleeId, status, startTime }
+    this.userSockets = new Map(); // Track user sockets: userId -> socketId
+    this.userCallStatus = new Map(); // Track user status: userId -> 'idle' | 'calling' | 'in_call'
+    
     this.initDatabase();
     this.setupMiddleware();
     this.setupWebSocket();
@@ -125,9 +131,14 @@ class ChatifyAPI {
       console.log(`🔌 User ${userId} connected via WebSocket`);
       socket.userId = userId;
 
+      // Track user socket and set status to idle
+      this.userSockets.set(userId, socket.id);
+      this.userCallStatus.set(userId, 'idle');
+
       // Join user to their personal room
       socket.join(`user_${userId}`);
 
+      // ========== EXISTING MESSAGE HANDLING ==========
       // Handle message send event
       socket.on('message:send', async (data) => {
         try {
@@ -140,9 +151,241 @@ class ChatifyAPI {
         }
       });
 
+      // ========== AUDIO CALL SIGNALING ==========
+      
+      // Initiate audio call
+      socket.on('call:initiate', async (data) => {
+        try {
+          const { targetUserId, chatId } = data;
+          const callerId = userId;
+          
+          console.log(`📞 Call initiated: ${callerId} -> ${targetUserId}`);
+          
+          // Check if target user is available
+          const targetStatus = this.userCallStatus.get(targetUserId);
+          const targetSocketId = this.userSockets.get(targetUserId);
+          
+          if (!targetSocketId || targetStatus !== 'idle') {
+            socket.emit('call:failed', { 
+              reason: targetSocketId ? 'user_busy' : 'user_offline',
+              message: targetSocketId ? 'User is busy' : 'User is offline'
+            });
+            return;
+          }
+          
+          // Generate unique call ID
+          const callId = `call_${Date.now()}_${callerId}_${targetUserId}`;
+          
+          // Store call data
+          this.activeCalls.set(callId, {
+            callId,
+            callerId,
+            calleeId: targetUserId,
+            chatId,
+            status: 'calling',
+            startTime: new Date(),
+            type: 'audio'
+          });
+          
+          // Update user statuses
+          this.userCallStatus.set(callerId, 'calling');
+          this.userCallStatus.set(targetUserId, 'calling');
+          
+          // Notify target user about incoming call
+          this.io.to(`user_${targetUserId}`).emit('call:incoming', {
+            callId,
+            callerId,
+            chatId,
+            callType: 'audio'
+          });
+          
+          // Set call timeout (30 seconds)
+          setTimeout(() => {
+            if (this.activeCalls.has(callId)) {
+              const call = this.activeCalls.get(callId);
+              if (call.status === 'calling') {
+                this.handleCallTimeout(callId);
+              }
+            }
+          }, 30000);
+          
+        } catch (error) {
+          console.error('❌ Error initiating call:', error);
+          socket.emit('call:failed', { reason: 'server_error', message: 'Failed to initiate call' });
+        }
+      });
+
+      // Accept call
+      socket.on('call:accept', (data) => {
+        try {
+          const { callId } = data;
+          const call = this.activeCalls.get(callId);
+          
+          if (!call || call.calleeId !== userId) {
+            socket.emit('call:failed', { reason: 'invalid_call', message: 'Invalid call' });
+            return;
+          }
+          
+          console.log(`📞 Call accepted: ${call.callerId} <- ${userId}`);
+          
+          // Update call status
+          call.status = 'accepted';
+          this.activeCalls.set(callId, call);
+          
+          // Update user statuses
+          this.userCallStatus.set(call.callerId, 'in_call');
+          this.userCallStatus.set(call.calleeId, 'in_call');
+          
+          // Notify caller that call was accepted
+          this.io.to(`user_${call.callerId}`).emit('call:accepted', {
+            callId,
+            acceptedBy: userId
+          });
+          
+        } catch (error) {
+          console.error('❌ Error accepting call:', error);
+          socket.emit('call:failed', { reason: 'server_error', message: 'Failed to accept call' });
+        }
+      });
+
+      // Reject call
+      socket.on('call:reject', (data) => {
+        try {
+          const { callId } = data;
+          const call = this.activeCalls.get(callId);
+          
+          if (!call || call.calleeId !== userId) {
+            return;
+          }
+          
+          console.log(`📞 Call rejected: ${call.callerId} <- ${userId}`);
+          
+          // Notify caller about rejection
+          this.io.to(`user_${call.callerId}`).emit('call:rejected', {
+            callId,
+            rejectedBy: userId
+          });
+          
+          // Clean up call
+          this.cleanupCall(callId);
+          
+        } catch (error) {
+          console.error('❌ Error rejecting call:', error);
+        }
+      });
+
+      // End call
+      socket.on('call:end', (data) => {
+        try {
+          const { callId } = data;
+          const call = this.activeCalls.get(callId);
+          
+          if (!call || (call.callerId !== userId && call.calleeId !== userId)) {
+            return;
+          }
+          
+          console.log(`📞 Call ended by: ${userId}`);
+          
+          // Notify other participant
+          const otherUserId = call.callerId === userId ? call.calleeId : call.callerId;
+          this.io.to(`user_${otherUserId}`).emit('call:ended', {
+            callId,
+            endedBy: userId
+          });
+          
+          // Clean up call
+          this.cleanupCall(callId);
+          
+        } catch (error) {
+          console.error('❌ Error ending call:', error);
+        }
+      });
+
+      // ========== WebRTC SIGNALING ==========
+      
+      // Handle WebRTC offer
+      socket.on('webrtc:offer', (data) => {
+        try {
+          const { callId, offer } = data;
+          const call = this.activeCalls.get(callId);
+          
+          if (!call || call.callerId !== userId) {
+            return;
+          }
+          
+          console.log(`🔄 WebRTC offer sent: ${userId} -> ${call.calleeId}`);
+          
+          // Forward offer to callee
+          this.io.to(`user_${call.calleeId}`).emit('webrtc:offer', {
+            callId,
+            offer,
+            fromUserId: userId
+          });
+          
+        } catch (error) {
+          console.error('❌ Error handling WebRTC offer:', error);
+        }
+      });
+
+      // Handle WebRTC answer
+      socket.on('webrtc:answer', (data) => {
+        try {
+          const { callId, answer } = data;
+          const call = this.activeCalls.get(callId);
+          
+          if (!call || call.calleeId !== userId) {
+            return;
+          }
+          
+          console.log(`🔄 WebRTC answer sent: ${userId} -> ${call.callerId}`);
+          
+          // Forward answer to caller
+          this.io.to(`user_${call.callerId}`).emit('webrtc:answer', {
+            callId,
+            answer,
+            fromUserId: userId
+          });
+          
+          // Update call status to connected
+          call.status = 'connected';
+          this.activeCalls.set(callId, call);
+          
+        } catch (error) {
+          console.error('❌ Error handling WebRTC answer:', error);
+        }
+      });
+
+      // Handle ICE candidates
+      socket.on('webrtc:ice-candidate', (data) => {
+        try {
+          const { callId, candidate } = data;
+          const call = this.activeCalls.get(callId);
+          
+          if (!call) return;
+          
+          // Forward ICE candidate to the other peer
+          const targetUserId = call.callerId === userId ? call.calleeId : call.callerId;
+          this.io.to(`user_${targetUserId}`).emit('webrtc:ice-candidate', {
+            callId,
+            candidate,
+            fromUserId: userId
+          });
+          
+        } catch (error) {
+          console.error('❌ Error handling ICE candidate:', error);
+        }
+      });
+
       // Handle disconnect
       socket.on('disconnect', () => {
         console.log(`🔌 User ${userId} disconnected from WebSocket`);
+        
+        // Clean up user data
+        this.userSockets.delete(userId);
+        this.userCallStatus.delete(userId);
+        
+        // Clean up any active calls
+        this.cleanupUserCalls(userId);
       });
     });
   }
@@ -162,7 +405,9 @@ class ChatifyAPI {
           timestamp: new Date().toISOString(),
           version: process.env.API_VERSION || 'v1',
           database: 'Connected',
-          environment: process.env.NODE_ENV
+          environment: process.env.NODE_ENV,
+          activeCalls: this.activeCalls.size,
+          connectedUsers: this.userSockets.size
         });
       } catch (error) {
         res.status(500).json({
@@ -171,6 +416,24 @@ class ChatifyAPI {
           error: error.message
         });
       }
+    });
+
+    // Call status endpoint (for debugging)
+    this.app.get('/api/calls/status', (req, res) => {
+      const calls = Array.from(this.activeCalls.values());
+      const users = Array.from(this.userCallStatus.entries()).map(([userId, status]) => ({
+        userId,
+        status,
+        socketConnected: this.userSockets.has(userId)
+      }));
+
+      res.json({
+        success: true,
+        activeCalls: calls,
+        userStatuses: users,
+        totalCalls: calls.length,
+        totalUsers: users.length
+      });
     });
 
     // Sử dụng API routes
@@ -224,6 +487,57 @@ class ChatifyAPI {
         ...(process.env.NODE_ENV === 'development' && { stack: error.stack })
       });
     });
+  }
+
+  // ========== CALL MANAGEMENT HELPER METHODS ==========
+  
+  cleanupCall(callId) {
+    const call = this.activeCalls.get(callId);
+    if (call) {
+      // Reset user statuses to idle
+      this.userCallStatus.set(call.callerId, 'idle');
+      this.userCallStatus.set(call.calleeId, 'idle');
+      
+      // Remove call from active calls
+      this.activeCalls.delete(callId);
+      
+      console.log(`🧹 Call cleaned up: ${callId}`);
+    }
+  }
+
+  cleanupUserCalls(userId) {
+    // Find all calls involving this user
+    for (let [callId, call] of this.activeCalls) {
+      if (call.callerId === userId || call.calleeId === userId) {
+        // Notify the other participant
+        const otherUserId = call.callerId === userId ? call.calleeId : call.callerId;
+        this.io.to(`user_${otherUserId}`).emit('call:ended', {
+          callId,
+          endedBy: userId,
+          reason: 'user_disconnected'
+        });
+        
+        // Clean up the call
+        this.activeCalls.delete(callId);
+        this.userCallStatus.set(otherUserId, 'idle');
+        
+        console.log(`🧹 User call cleaned up: ${callId} (user ${userId} disconnected)`);
+      }
+    }
+  }
+
+  handleCallTimeout(callId) {
+    const call = this.activeCalls.get(callId);
+    if (call && call.status === 'calling') {
+      console.log(`⏰ Call timeout: ${callId}`);
+      
+      // Notify both users about timeout
+      this.io.to(`user_${call.callerId}`).emit('call:timeout', { callId });
+      this.io.to(`user_${call.calleeId}`).emit('call:timeout', { callId });
+      
+      // Clean up call
+      this.cleanupCall(callId);
+    }
   }
 
   start() {

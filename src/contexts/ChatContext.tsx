@@ -1,5 +1,5 @@
 import React, { createContext, useState, useEffect, useCallback } from 'react';
-import { Chat, Message, User, ChatContextType, ApiUser, ApiChat, ApiChatMember, ApiMessage } from '../types';
+import { Chat, Message, User, ChatContextType, ApiUser, ApiChat, ApiChatMember, ApiMessage, CallData } from '../types';
 import { API_CONFIG, buildApiUrl } from '../config/api';
 import { socketService } from '../services/socketService';
 import { aiChatService } from '../services/aiChatService';
@@ -13,6 +13,12 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isMobileView, setIsMobileView] = useState(false);
   const [searchResult, setSearchResult] = useState<ApiUser | null>(null);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
+  
+  // Call states
+  const [incomingCall, setIncomingCall] = useState<CallData | null>(null);
+  const [activeCall, setActiveCall] = useState<CallData | null>(null);
+  const [callStatus, setCallStatus] = useState<'idle' | 'calling' | 'ringing' | 'connected'>('idle');
+  
   const navigate = useNavigate();
 
   // Helper function to filter chats
@@ -151,6 +157,56 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         socketService.onNewMessage((data) => {
           console.log('Received new message via WebSocket:', data);
           handleNewMessage(data);
+        });
+
+        // Setup call event listeners
+        socketService.onIncomingCall((data) => {
+          console.log('Incoming call:', data);
+          setIncomingCall({
+            callId: data.callId,
+            callerId: data.callerId,
+            targetUserId: currentUser?.id || '',
+            chatId: data.chatId,
+            type: data.callType === 'video' ? 'video' : 'voice',
+            status: 'ringing'
+          });
+          setCallStatus('ringing');
+        });
+
+        socketService.onCallAccepted((data) => {
+          console.log('Call accepted:', data);
+          setCallStatus('connected');
+          setIncomingCall(null);
+          setActiveCall(prev => prev ? { ...prev, status: 'connected', isInitiator: true } : null);
+        });
+
+        socketService.onCallRejected((data) => {
+          console.log('Call rejected:', data);
+          setCallStatus('idle');
+          setActiveCall(null);
+          setIncomingCall(null);
+        });
+
+        socketService.onCallEnded((data) => {
+          console.log('Call ended:', data);
+          setCallStatus('idle');
+          setActiveCall(null);
+          setIncomingCall(null);
+        });
+
+        socketService.onCallTimeout((data) => {
+          console.log('Call timeout:', data);
+          setCallStatus('idle');
+          setActiveCall(null);
+          setIncomingCall(null);
+        });
+
+        socketService.onCallFailed((data) => {
+          console.log('Call failed:', data);
+          setCallStatus('idle');
+          setActiveCall(null);
+          setIncomingCall(null);
+          alert(`Call failed: ${data.message}`);
         });
 
         // Cleanup on unmount
@@ -421,6 +477,44 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [loadUserChats]);
 
+  // Call functions
+  const initiateCall = useCallback((targetUserId: string, chatId: string) => {
+    if (!currentUser) return;
+    console.log('Initiating call to:', targetUserId);
+    setCallStatus('calling');
+    socketService.initiateCall(targetUserId, chatId);
+  }, [currentUser]);
+
+  const acceptCall = useCallback((callId: string) => {
+    console.log('Accepting call:', callId);
+    setCallStatus('connected');
+    // Update the existing incomingCall to activeCall
+    setActiveCall(prev => {
+      if (incomingCall) {
+        return { ...incomingCall, status: 'connected', isInitiator: false };
+      }
+      return prev;
+    });
+    setIncomingCall(null);
+    socketService.acceptCall(callId);
+  }, [incomingCall]);
+
+  const rejectCall = useCallback((callId: string) => {
+    console.log('Rejecting call:', callId);
+    setCallStatus('idle');
+    setIncomingCall(null);
+    socketService.rejectCall(callId);
+  }, []);
+
+  const endCall = useCallback(() => {
+    if (activeCall) {
+      console.log('Ending call:', activeCall.callId);
+      setCallStatus('idle');
+      setActiveCall(null);
+      socketService.endCall(activeCall.callId);
+    }
+  }, [activeCall]);
+
   // Load chat messages
   const loadChatMessages = useCallback(async (chatId: string) => {
     try {
@@ -506,7 +600,15 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setMobileView: setIsMobileView,
     refreshUserChats,
     loadChatMessages,
-    logout
+    logout,
+    // Call states and functions
+    incomingCall,
+    activeCall,
+    callStatus,
+    initiateCall,
+    acceptCall,
+    rejectCall,
+    endCall
   };
 
   // Don't render children until user is loaded or confirmed not logged in

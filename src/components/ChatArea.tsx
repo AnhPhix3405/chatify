@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Phone, Video, MoreVertical, Send, Paperclip, Smile, Image, ArrowLeft } from 'lucide-react';
-import { useChat } from '../hooks/useChat'; // Cập nhật import để sử dụng hook từ file mới
+import { useChat } from '../hooks/useChat';
 import { Message, User } from '../types';
 
 const MessageBubble: React.FC<{ 
@@ -163,7 +163,14 @@ const MessageInput: React.FC = () => {
 };
 
 export const ChatArea: React.FC = () => {
-  const { activeChat, currentUser, addReaction, isMobileView, setActiveChat } = useChat();
+  const { 
+    activeChat, 
+    currentUser, 
+    addReaction, 
+    isMobileView, 
+    setActiveChat, 
+    initiateCall
+  } = useChat();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -192,6 +199,20 @@ export const ChatArea: React.FC = () => {
 
   // Thêm kiểu cho các tham số
   const otherParticipant = activeChat.participants.find((p: User) => p.id !== currentUser?.id);
+
+  const handlePhoneCall = () => {
+    if (otherParticipant && activeChat) {
+      initiateCall(otherParticipant.id, activeChat.id);
+    }
+  };
+
+  const handleVideoCall = () => {
+    if (otherParticipant && activeChat) {
+      // For now, use the same initiateCall function
+      // In the future, you might want to add a second parameter for call type
+      initiateCall(otherParticipant.id, activeChat.id);
+    }
+  };
 
   return (
     <div className="flex-1 flex flex-col bg-white dark:bg-gray-900 h-full">
@@ -227,10 +248,16 @@ export const ChatArea: React.FC = () => {
           </div>
           
           <div className="flex items-center space-x-1">
-            <button className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors duration-200">
+            <button 
+              onClick={handlePhoneCall}
+              className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors duration-200"
+            >
               <Phone className="w-5 h-5" />
             </button>
-            <button className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors duration-200">
+            <button 
+              onClick={handleVideoCall}
+              className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors duration-200"
+            >
               <Video className="w-5 h-5" />
             </button>
             <button className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors duration-200">

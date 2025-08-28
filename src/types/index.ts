@@ -97,6 +97,14 @@ export interface ChatContextType {
   refreshUserChats: () => Promise<void>;
   loadChatMessages: (chatId: string) => Promise<void>;
   logout: () => void;
+  // Call related properties
+  initiateCall: (targetUserId: string, chatId: string) => void;
+  acceptCall: (callId: string) => void;
+  rejectCall: (callId: string) => void;
+  endCall: () => void;
+  incomingCall: CallData | null;
+  activeCall: CallData | null;
+  callStatus: 'idle' | 'calling' | 'ringing' | 'connected';
 }
 
 
@@ -135,4 +143,61 @@ export interface SocketMessageDeleteData {
   messageId: string;
   chatId: string;
   deletedBy: string;
+}
+
+// Call related interfaces
+export interface CallData {
+  callId: string;
+  callerId: string;
+  targetUserId: string;
+  chatId: string;
+  type: 'voice' | 'video';
+  status: 'calling' | 'ringing' | 'connected' | 'ended';
+  isInitiator?: boolean;
+}
+
+export interface CallIncomingData {
+  callId: string;
+  callerId: string;
+  chatId: string;
+  callType: string;
+}
+
+export interface CallAcceptedData {
+  callId: string;
+  acceptedBy: string;
+}
+
+export interface CallRejectedData {
+  callId: string;
+  rejectedBy: string;
+}
+
+export interface CallEndedData {
+  callId: string;
+  endedBy: string;
+  reason?: string;
+}
+
+export interface CallFailedData {
+  reason: string;
+}
+
+// WebRTC related interfaces
+export interface WebRTCOfferData {
+  callId: string;
+  offer: RTCSessionDescriptionInit;
+  fromUserId: string;
+}
+
+export interface WebRTCAnswerData {
+  callId: string;
+  answer: RTCSessionDescriptionInit;
+  fromUserId: string;
+}
+
+export interface WebRTCIceCandidateData {
+  callId: string;
+  candidate: RTCIceCandidateInit;
+  fromUserId: string;
 }
