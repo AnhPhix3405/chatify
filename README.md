@@ -1,7 +1,5 @@
 # 💬 Chatify - Modern Real-time Chat Application
 
-A feature-rich, modern chat application built with React, TypeScript, Node.js, and Socket.io. Chatify provides seamless real-time messaging with AI integration for an enhanced communication experience.
-
 ## 🌐 Live Demo
 
 - **Frontend:** [https://chatify-neon-five.vercel.app/](https://chatify-neon-five.vercel.app/)
